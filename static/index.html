@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>院内ふせんボード</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' rx='8' fill='%23ffd54f'/><path d='M65 90 L90 65 L65 65 Z' fill='%23f9a825'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <h1 class="logo">🗒️ 院内ふせんボード</h1>
+  <input type="search" id="search-input" class="search" placeholder="🔍 付箋を検索...">
+  <div class="topbar-actions">
+    <button id="new-note-btn" class="btn btn-primary">＋ 新しい付箋</button>
+    <button id="archive-btn" class="btn">📁 完了済み</button>
+    <button id="settings-btn" class="btn btn-icon" title="部署の設定">⚙️</button>
+  </div>
+  <span id="conn-status" class="conn-status" hidden>⚠ サーバーに接続できません</span>
+</header>
+
+<main id="board" class="board"></main>
+
+<main id="archive" class="archive" hidden>
+  <div class="archive-head">
+    <h2>📁 完了済みの付箋</h2>
+    <button id="archive-back-btn" class="btn">← ボードに戻る</button>
+  </div>
+  <div id="archive-list" class="archive-list"></div>
+</main>
+
+<!-- 付箋の作成・編集モーダル -->
+<div id="note-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="note-modal-title">新しい付箋</h2>
+    <textarea id="note-content" rows="5" maxlength="2000"
+      placeholder="メッセージを入力してください&#10;例: 山田様 14時来院予定。到着したら診察室へお知らせください。"></textarea>
+
+    <div class="form-row">
+      <label for="note-dept">宛先</label>
+      <select id="note-dept"></select>
+    </div>
+
+    <div class="form-row">
+      <label>色</label>
+      <div id="color-picker" class="color-picker">
+        <button type="button" class="color-swatch color-yellow" data-color="yellow" title="黄 (例: 連絡・お知らせ)"></button>
+        <button type="button" class="color-swatch color-pink"   data-color="pink"   title="ピンク (例: 至急・重要)"></button>
+        <button type="button" class="color-swatch color-blue"   data-color="blue"   title="青 (例: 患者さん対応)"></button>
+        <button type="button" class="color-swatch color-green"  data-color="green"  title="緑 (例: 備品・発注)"></button>
+        <button type="button" class="color-swatch color-purple" data-color="purple" title="紫 (例: その他)"></button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="checkbox-label">
+        <input type="checkbox" id="note-urgent"> <span class="urgent-text">🔴 至急</span>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label for="note-author">名前</label>
+      <input type="text" id="note-author" maxlength="50" placeholder="例: 佐藤">
+    </div>
+
+    <p id="note-error" class="form-error" hidden></p>
+
+    <div class="modal-actions">
+      <button id="note-delete-btn" class="btn btn-danger" hidden>削除</button>
+      <span class="spacer"></span>
+      <button id="note-cancel-btn" class="btn">キャンセル</button>
+      <button id="note-save-btn" class="btn btn-primary">貼る</button>
+    </div>
+  </div>
+</div>
+
+<!-- 部署設定モーダル -->
+<div id="settings-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>⚙️ 部署 (列) の設定</h2>
+    <p class="modal-note">ボードの列を院内の部署や場所に合わせて変更できます。<br>
+    部署を削除しても、その部署あての付箋は先頭の列に移動され消えません。</p>
+    <div id="dept-list" class="dept-list"></div>
+    <div class="dept-add-row">
+      <input type="text" id="dept-new-name" maxlength="20" placeholder="新しい部署名 (例: リハビリ室)">
+      <button id="dept-add-btn" class="btn btn-primary">追加</button>
+    </div>
+    <p id="dept-error" class="form-error" hidden></p>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button id="settings-close-btn" class="btn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
