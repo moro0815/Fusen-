@@ -22,6 +22,9 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const CATEGORIES = ['normal', 'info', 'caution', 'urgent'];
 const ASSIGNEES = ['all', 'reception', 'nurse', 'doctor', 'office'];
 
+// 完了にした付箋を自動削除するまでの日数
+const DONE_RETENTION_DAYS = 7;
+
 let notes = [];
 
 // 端末レジストリ: 端末名 -> 最終アクセス時刻(ms)。
@@ -83,7 +86,24 @@ function sanitizeNoteInput(body, base) {
   if ('done' in body) note.done = !!body.done;
   if ('popup' in body) note.popup = !!body.popup;
   if ('popupTarget' in body) note.popupTarget = sanitizeText(body.popupTarget, 30) || 'all';
+  if ('pinned' in body) note.pinned = !!body.pinned;
+  if ('dueAt' in body) {
+    if (typeof body.dueAt === 'string' && body.dueAt && !isNaN(Date.parse(body.dueAt))) {
+      note.dueAt = new Date(body.dueAt).toISOString();
+    } else {
+      note.dueAt = null;
+    }
+  }
+  // acks(確認履歴)はクライアントから直接書き換えられないよう、ここでは受け取らない
   return note;
+}
+
+// 完了から一定日数たった付箋を自動削除してボードを整理する
+function cleanupDoneNotes() {
+  const cutoff = Date.now() - DONE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const before = notes.length;
+  notes = notes.filter((n) => !(n.done && new Date(n.updatedAt).getTime() < cutoff));
+  if (notes.length !== before) saveNotes();
 }
 
 function readBody(req) {
@@ -161,6 +181,9 @@ const server = http.createServer(async (req, res) => {
         popup: false,
         popupTarget: 'all',
         popupAt: null,
+        pinned: false,
+        dueAt: null,
+        acks: [],
         createdAt: now,
         updatedAt: now,
       });
@@ -169,6 +192,24 @@ const server = http.createServer(async (req, res) => {
       notes.push(note);
       saveNotes();
       return sendJson(res, 201, { note });
+    }
+
+    // ポップアップの確認記録: どの端末の誰がいつ確認したかを付箋に残す
+    const ackMatch = pathname.match(/^\/api\/notes\/([0-9a-f]+)\/ack$/);
+    if (ackMatch && req.method === 'POST') {
+      const note = notes.find((n) => n.id === ackMatch[1]);
+      if (!note) return sendJson(res, 404, { error: '付箋が見つかりません' });
+      const body = await readBody(req);
+      const device = sanitizeText(body.device || '', 30).trim() || '(端末名未設定)';
+      const name = sanitizeText(body.name || '', 50).trim();
+      if (!Array.isArray(note.acks)) note.acks = [];
+      // 同じ通知(popupAt)を同じ端末が二重に記録しないようにする
+      const already = note.acks.some((a) => a.popupAt === note.popupAt && a.device === device);
+      if (!already) {
+        note.acks.push({ device, name, at: new Date().toISOString(), popupAt: note.popupAt });
+        saveNotes();
+      }
+      return sendJson(res, 200, { note });
     }
 
     const noteMatch = pathname.match(/^\/api\/notes\/([0-9a-f]+)$/);
@@ -216,6 +257,8 @@ const server = http.createServer(async (req, res) => {
 
 loadNotes();
 loadDevices();
+cleanupDoneNotes();
+setInterval(cleanupDoneNotes, 60 * 60 * 1000); // 1時間ごとに古い完了付箋を掃除
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('==========================================');

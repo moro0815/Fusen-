@@ -43,16 +43,16 @@
   }
   header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
   header h1 .pin { margin-right: 4px; }
-  .urgent-badge {
-    background: var(--c-urgent);
+  .head-badge {
     color: #fff;
     border-radius: 999px;
     padding: 3px 12px;
     font-size: 13px;
     font-weight: 700;
-    animation: pulse 1.2s infinite;
     display: none;
   }
+  #urgentBadge { background: var(--c-urgent); animation: pulse 1.2s infinite; }
+  #dueBadge { background: var(--c-caution); }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
   .spacer { flex: 1; }
   .name-box { display: flex; align-items: center; gap: 6px; font-size: 13px; }
@@ -153,6 +153,15 @@
     background: rgba(255,255,255,.55);
     box-shadow: 0 1px 2px rgba(0,0,0,.08);
   }
+  .note.is-pinned::before {
+    content: '📌';
+    background: none;
+    box-shadow: none;
+    font-size: 20px;
+    top: -12px;
+    width: auto;
+    height: auto;
+  }
   .note.cat-normal  { background: var(--c-normal-bg); }
   .note.cat-info    { background: var(--c-info-bg); }
   .note.cat-caution { background: var(--c-caution-bg); }
@@ -176,6 +185,9 @@
   .badge.assignee { background: #fff; color: #555; border: 1px solid #bbb; font-weight: 600; }
   .badge.hidden-mark { background: #777; }
   .badge.popup-mark { background: #6a4fb3; }
+  .badge.due-ok { background: #607d8b; }
+  .badge.due-today { background: var(--c-caution); }
+  .badge.due-over { background: var(--c-urgent); animation: pulse 1.2s infinite; }
 
   .note-text {
     font-size: 14px;
@@ -183,6 +195,12 @@
     white-space: pre-wrap;
     flex: 1;
   }
+  .note-acks {
+    font-size: 11px;
+    color: #2e7d32;
+    line-height: 1.5;
+  }
+  .note-acks.none { color: #999; }
   .note-foot {
     display: flex;
     align-items: center;
@@ -198,6 +216,7 @@
     font-size: 16px; padding: 5px 7px; border-radius: 6px; line-height: 1;
   }
   .icon-btn:hover { background: rgba(0,0,0,.08); }
+  .icon-btn.active-pin { background: rgba(0,0,0,.12); border-radius: 6px; }
 
   /* ===== 完了セクション ===== */
   .done-section {
@@ -209,6 +228,7 @@
     background: none; border: none; cursor: pointer;
     font-size: 14px; color: #666; padding: 10px 0; font-weight: 600;
   }
+  .done-hint { font-size: 11px; color: #999; margin-left: 8px; font-weight: 400; }
 
   /* ===== モーダル ===== */
   .modal-overlay {
@@ -255,6 +275,15 @@
   .cat-option.cat-caution span { background: var(--c-caution-bg); }
   .cat-option.cat-urgent span  { background: var(--c-urgent-bg); }
   .cat-option input:checked + span { border-color: #333; }
+  .due-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .due-row input[type="datetime-local"] {
+    border: 1px solid #ccc; border-radius: 8px; padding: 8px; font-size: 14px; font-family: inherit;
+  }
+  .mini-btn {
+    background: #eef4f3; color: var(--header-bg); border: 1px solid #cfe0dd;
+    border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .mini-btn:hover { background: #ddeae8; }
   .vis-row { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; cursor: pointer; user-select: none; }
   .vis-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
   .field-note { font-size: 12px; color: #888; margin-top: 4px; padding-left: 26px; }
@@ -341,11 +370,12 @@
 
 <header>
   <h1><span class="pin">📌</span>クリニック共有付箋ボード</h1>
-  <span class="urgent-badge" id="urgentBadge"></span>
+  <span class="head-badge" id="urgentBadge"></span>
+  <span class="head-badge" id="dueBadge"></span>
   <span class="spacer"></span>
   <div class="name-box">
     <span>端末名:</span>
-    <input type="text" id="deviceName" placeholder="例: 受付1" maxlength="20" title="この端末（PC・タブレット）の名前。ポップアップの宛先指定に使われます">
+    <input type="text" id="deviceName" placeholder="例: 受付1" maxlength="20" title="この端末（PC・タブレット）の名前。ポップアップの宛先指定や確認履歴に使われます">
   </div>
   <div class="name-box">
     <span>名前:</span>
@@ -365,7 +395,7 @@
 <main class="board" id="board"></main>
 
 <div class="done-section">
-  <button class="done-toggle" id="doneToggle">▸ 完了した付箋 (0)</button>
+  <button class="done-toggle" id="doneToggle">▸ 完了した付箋 (0)</button><span class="done-hint">※完了から7日で自動的に削除されます</span>
   <div class="board" id="doneBoard" style="display:none; padding: 8px 0 0;"></div>
 </div>
 
@@ -397,11 +427,21 @@
       </select>
     </div>
     <div class="field">
+      <label class="field-label">期限（任意）</label>
+      <div class="due-row">
+        <input type="datetime-local" id="noteDue">
+        <button type="button" class="mini-btn" id="dueToday">今日中</button>
+        <button type="button" class="mini-btn" id="dueTomorrow">明日朝</button>
+        <button type="button" class="mini-btn" id="dueClear">クリア</button>
+      </div>
+      <div class="field-note" style="padding-left:0;">期限を過ぎると付箋に「期限切れ」と赤く表示されます。</div>
+    </div>
+    <div class="field">
       <label class="vis-row">
         <input type="checkbox" id="notePopup">
         <span>🔔 ポップアップで通知する</span>
       </label>
-      <div class="field-note">対象の端末に、確認ボタンを押すまで消えない通知が表示されます。</div>
+      <div class="field-note">対象の端末に、確認ボタンを押すまで消えない通知が表示されます。誰が確認したかは付箋に記録されます。</div>
       <div class="popup-target-row" id="popupTargetRow" style="display:none;">
         <select id="popupTarget">
           <option value="all">すべての端末</option>
@@ -453,7 +493,7 @@
     showDone: false,
     editingId: null,
     lastJson: '',
-    currentPopup: null, // 表示中のポップアップ付箋
+    currentPopup: null,
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -468,7 +508,7 @@
   $('deviceName').value = localStorage.getItem('fusen_device') || '';
   $('deviceName').addEventListener('change', function () {
     localStorage.setItem('fusen_device', this.value.trim());
-    fetchNotes(); // すぐサーバーに端末登録
+    fetchNotes();
   });
 
   // ---- 確認済みポップアップの記録（この端末内のみ）----
@@ -523,6 +563,22 @@
       d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
   }
 
+  function formatDue(iso) {
+    var d = new Date(iso);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+
+  // 期限の状態: 'over'(期限切れ) / 'today'(今日中) / 'ok'
+  function dueStatus(iso) {
+    var due = new Date(iso);
+    var now = new Date();
+    if (due.getTime() < now.getTime()) return 'over';
+    var endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    if (due.getTime() <= endOfToday.getTime()) return 'today';
+    return 'ok';
+  }
+
   // ---- フィルタ ----
   function matchesFilter(n) {
     if (state.filter !== 'all' && n.assignee !== 'all' && n.assignee !== state.filter) return false;
@@ -531,10 +587,17 @@
     return true;
   }
 
+  // 並び順: ピン留め → 種類(緊急が先) → 期限が近い順 → 更新が新しい順
   function sortNotes(a, b) {
+    var pa = a.pinned ? 0 : 1;
+    var pb = b.pinned ? 0 : 1;
+    if (pa !== pb) return pa - pb;
     var ca = CATEGORY_ORDER[a.category] !== undefined ? CATEGORY_ORDER[a.category] : 9;
     var cb = CATEGORY_ORDER[b.category] !== undefined ? CATEGORY_ORDER[b.category] : 9;
     if (ca !== cb) return ca - cb;
+    var da = a.dueAt ? new Date(a.dueAt).getTime() : Infinity;
+    var db = b.dueAt ? new Date(b.dueAt).getTime() : Infinity;
+    if (da !== db) return da - db;
     return new Date(b.updatedAt) - new Date(a.updatedAt);
   }
 
@@ -543,7 +606,8 @@
     var card = document.createElement('div');
     card.className = 'note cat-' + n.category +
       (n.visible === false ? ' is-hidden' : '') +
-      (n.done ? ' is-done' : '');
+      (n.done ? ' is-done' : '') +
+      (n.pinned ? ' is-pinned' : '');
 
     var head = document.createElement('div');
     head.className = 'note-head';
@@ -557,6 +621,15 @@
     asBadge.className = 'badge assignee';
     asBadge.textContent = '宛先: ' + (ASSIGNEE_LABELS[n.assignee] || n.assignee);
     head.appendChild(asBadge);
+
+    if (n.dueAt) {
+      var st = dueStatus(n.dueAt);
+      var dueBadge = document.createElement('span');
+      dueBadge.className = 'badge due-' + st;
+      dueBadge.textContent =
+        (st === 'over' ? '⏰ 期限切れ ' : st === 'today' ? '⏰ 本日 ' : '📅 期限 ') + formatDue(n.dueAt);
+      head.appendChild(dueBadge);
+    }
 
     if (n.popup) {
       var popBadge = document.createElement('span');
@@ -578,6 +651,25 @@
     text.textContent = n.text;
     card.appendChild(text);
 
+    // ポップアップ通知の確認履歴（今回の通知分のみ表示）
+    if (n.popup && n.popupAt) {
+      var acks = (n.acks || []).filter(function (a) { return a.popupAt === n.popupAt; });
+      var ackLine = document.createElement('div');
+      if (acks.length > 0) {
+        ackLine.className = 'note-acks';
+        ackLine.textContent = '✔ 確認済み: ' + acks.map(function (a) {
+          return a.device + (a.name ? '(' + a.name + ')' : '');
+        }).join('・');
+        ackLine.title = acks.map(function (a) {
+          return a.device + (a.name ? '(' + a.name + ')' : '') + ' — ' + timeAgo(a.at);
+        }).join('\n');
+      } else {
+        ackLine.className = 'note-acks none';
+        ackLine.textContent = '✔ 確認: まだありません';
+      }
+      card.appendChild(ackLine);
+    }
+
     var foot = document.createElement('div');
     foot.className = 'note-foot';
 
@@ -589,9 +681,9 @@
     var actions = document.createElement('div');
     actions.className = 'note-actions';
 
-    function iconBtn(label, title, handler) {
+    function iconBtn(label, title, handler, extraClass) {
       var b = document.createElement('button');
-      b.className = 'icon-btn';
+      b.className = 'icon-btn' + (extraClass ? ' ' + extraClass : '');
       b.textContent = label;
       b.title = title;
       b.addEventListener('click', handler);
@@ -600,6 +692,9 @@
 
     if (!n.done) {
       iconBtn('✅', '完了にする', function () { updateNote(n.id, { done: true }); });
+      iconBtn('📌', n.pinned ? 'ピン留めを外す' : 'ピン留め（一番上に固定）', function () {
+        updateNote(n.id, { pinned: !n.pinned });
+      }, n.pinned ? 'active-pin' : '');
       iconBtn(n.visible === false ? '🙈' : '👁', n.visible === false ? '表示に戻す' : '非表示にする', function () {
         updateNote(n.id, { visible: n.visible === false });
       });
@@ -652,6 +747,18 @@
     } else {
       badge.style.display = 'none';
     }
+
+    var overdueCount = state.notes.filter(function (n) {
+      return !n.done && n.visible !== false && n.dueAt && dueStatus(n.dueAt) === 'over';
+    }).length;
+    var dBadge = $('dueBadge');
+    if (overdueCount > 0) {
+      dBadge.style.display = 'inline-block';
+      dBadge.textContent = '⏰ 期限切れ ' + overdueCount + '件';
+    } else {
+      dBadge.style.display = 'none';
+    }
+
     document.title = (urgentCount > 0 ? '🚨(' + urgentCount + ') ' : '') + 'クリニック共有付箋ボード';
   }
 
@@ -692,7 +799,6 @@
   }
 
   function checkPopups() {
-    // 削除された付箋の確認記録を掃除
     var ids = {};
     state.notes.forEach(function (n) { ids[n.id] = true; });
     var dirty = false;
@@ -718,7 +824,8 @@
       $('popupText').textContent = top.text;
       $('popupMeta').textContent =
         (top.author ? top.author + ' ・ ' : '') + timeAgo(top.popupAt) +
-        ' ・ 宛先: ' + (ASSIGNEE_LABELS[top.assignee] || top.assignee);
+        ' ・ 宛先: ' + (ASSIGNEE_LABELS[top.assignee] || top.assignee) +
+        (top.dueAt ? ' ・ 期限: ' + formatDue(top.dueAt) : '');
       $('popupCount').textContent = pending.length > 1 ? '未確認の通知が あと' + (pending.length - 1) + '件あります' : '';
       popupOverlay.classList.add('open');
       playChime();
@@ -726,12 +833,22 @@
   }
 
   $('popupAckBtn').addEventListener('click', function () {
-    if (state.currentPopup) {
-      acked[state.currentPopup.id] = state.currentPopup.popupAt;
+    var cur = state.currentPopup;
+    if (cur) {
+      acked[cur.id] = cur.popupAt;
       saveAcked();
       state.currentPopup = null;
+      // サーバーに確認履歴を記録（誰が・どの端末で確認したか）
+      fetch('/api/notes/' + cur.id + '/ack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device: $('deviceName').value.trim(),
+          name: $('myName').value.trim(),
+        }),
+      }).then(fetchNotes).catch(function () {});
     }
-    checkPopups(); // 次の未確認通知があれば続けて表示
+    checkPopups();
   });
 
   // ---- API ----
@@ -767,6 +884,26 @@
     fetch('/api/notes/' + id, { method: 'DELETE' }).then(fetchNotes);
   }
 
+  // ---- 期限入力 ----
+  function toLocalInputValue(d) {
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) +
+      'T' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+  $('dueToday').addEventListener('click', function () {
+    var d = new Date();
+    d.setHours(18, 0, 0, 0);
+    $('noteDue').value = toLocalInputValue(d);
+  });
+  $('dueTomorrow').addEventListener('click', function () {
+    var d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    $('noteDue').value = toLocalInputValue(d);
+  });
+  $('dueClear').addEventListener('click', function () {
+    $('noteDue').value = '';
+  });
+
   // ---- モーダル ----
   var overlay = $('modalOverlay');
 
@@ -778,7 +915,6 @@
     optAll.textContent = 'すべての端末';
     sel.appendChild(optAll);
     var names = state.devices.map(function (d) { return d.name; });
-    // 編集中の付箋が既に持っている宛先端末が一覧に無ければ追加しておく
     if (selected && selected !== 'all' && names.indexOf(selected) === -1) names.push(selected);
     names.forEach(function (name) {
       var d = state.devices.find(function (x) { return x.name === name; });
@@ -799,6 +935,7 @@
     $('noteVisible').checked = note ? note.visible !== false : true;
     $('notePopup').checked = note ? !!note.popup : false;
     $('popupTargetRow').style.display = $('notePopup').checked ? 'block' : 'none';
+    $('noteDue').value = note && note.dueAt ? toLocalInputValue(new Date(note.dueAt)) : '';
     fillPopupTargets(note ? note.popupTarget : 'all');
     var cat = note ? note.category : 'normal';
     var radios = document.querySelectorAll('input[name="cat"]');
@@ -827,6 +964,7 @@
     var text = $('noteText').value.trim();
     if (!text) { alert('内容を入力してください。'); return; }
     var catEl = document.querySelector('input[name="cat"]:checked');
+    var dueVal = $('noteDue').value;
     var payload = {
       text: text,
       category: catEl ? catEl.value : 'normal',
@@ -834,10 +972,10 @@
       visible: $('noteVisible').checked,
       popup: $('notePopup').checked,
       popupTarget: $('popupTarget').value || 'all',
+      dueAt: dueVal ? new Date(dueVal).toISOString() : null,
       author: $('myName').value.trim(),
     };
 
-    // 自分が出した通知は自分の端末では確認済みにしておく
     var selfAck = payload.popup;
 
     var req;
@@ -872,6 +1010,11 @@
   setInterval(function () {
     if (!overlay.classList.contains('open')) fetchNotes();
   }, 5000);
+
+  // 期限切れ表示は時間経過でも変わるため、1分ごとに再描画
+  setInterval(function () {
+    if (!overlay.classList.contains('open')) render();
+  }, 60000);
 
   fetchNotes();
 })();
