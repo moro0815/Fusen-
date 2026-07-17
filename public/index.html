@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>クリニック共有付箋ボード</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📌</text></svg>">
+<style>
+  :root {
+    --header-bg: #1a7f76;
+    --header-text: #ffffff;
+    --board-bg: #f2ede4;
+    --c-urgent: #e53935;
+    --c-urgent-bg: #ffdad6;
+    --c-caution: #ef8f00;
+    --c-caution-bg: #ffe9c7;
+    --c-info: #1e6fd9;
+    --c-info-bg: #d9e8ff;
+    --c-normal: #b8a534;
+    --c-normal-bg: #fff6b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
+    background: var(--board-bg);
+    min-height: 100vh;
+  }
+
+  /* ===== ヘッダー ===== */
+  header {
+    background: var(--header-bg);
+    color: var(--header-text);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  }
+  header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
+  header h1 .pin { margin-right: 4px; }
+  .urgent-badge {
+    background: var(--c-urgent);
+    color: #fff;
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    animation: pulse 1.2s infinite;
+    display: none;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+  .spacer { flex: 1; }
+  .name-box { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .name-box input {
+    border: none; border-radius: 6px; padding: 6px 10px; font-size: 13px; width: 110px;
+  }
+  .add-btn {
+    background: #fff;
+    color: var(--header-bg);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  }
+  .add-btn:hover { background: #e8f6f4; }
+
+  /* ===== ツールバー ===== */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px 16px 0;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab {
+    background: #fff;
+    border: 1px solid #d5cebf;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #555;
+  }
+  .tab.active {
+    background: var(--header-bg);
+    border-color: var(--header-bg);
+    color: #fff;
+    font-weight: 700;
+  }
+  .search-box input {
+    border: 1px solid #d5cebf;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 13px;
+    width: 180px;
+    background: #fff;
+  }
+  .toggle-hidden {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #555; cursor: pointer; user-select: none;
+  }
+
+  /* ===== ボード ===== */
+  .board {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .empty-msg {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #999;
+    padding: 60px 0;
+    font-size: 15px;
+  }
+
+  /* ===== 付箋カード ===== */
+  .note {
+    border-radius: 4px;
+    padding: 12px 14px 10px;
+    box-shadow: 2px 3px 8px rgba(0,0,0,.15);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    word-break: break-word;
+  }
+  .note::before {
+    /* テープ風の飾り */
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 70px;
+    height: 16px;
+    background: rgba(255,255,255,.55);
+    box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  }
+  .note.cat-normal  { background: var(--c-normal-bg); }
+  .note.cat-info    { background: var(--c-info-bg); }
+  .note.cat-caution { background: var(--c-caution-bg); }
+  .note.cat-urgent  { background: var(--c-urgent-bg); border: 2px solid var(--c-urgent); animation: urgentGlow 1.6s infinite; }
+  @keyframes urgentGlow {
+    0%,100% { box-shadow: 2px 3px 8px rgba(0,0,0,.15); }
+    50% { box-shadow: 0 0 14px rgba(229,57,53,.65); }
+  }
+  .note.is-hidden { opacity: .5; border: 2px dashed #999; }
+  .note.is-done { opacity: .65; }
+  .note.is-done .note-text { text-decoration: line-through; color: #888; }
+
+  .note-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 8px; color: #fff;
+  }
+  .badge.cat-normal  { background: var(--c-normal); }
+  .badge.cat-info    { background: var(--c-info); }
+  .badge.cat-caution { background: var(--c-caution); }
+  .badge.cat-urgent  { background: var(--c-urgent); }
+  .badge.assignee { background: #fff; color: #555; border: 1px solid #bbb; font-weight: 600; }
+  .badge.hidden-mark { background: #777; }
+
+  .note-text {
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    flex: 1;
+  }
+  .note-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    border-top: 1px dashed rgba(0,0,0,.15);
+    padding-top: 6px;
+  }
+  .note-meta { font-size: 11px; color: #777; }
+  .note-actions { display: flex; gap: 2px; }
+  .icon-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 15px; padding: 3px 5px; border-radius: 5px; line-height: 1;
+  }
+  .icon-btn:hover { background: rgba(0,0,0,.08); }
+
+  /* ===== 完了セクション ===== */
+  .done-section {
+    max-width: 1400px;
+    margin: 8px auto 40px;
+    padding: 0 16px;
+  }
+  .done-toggle {
+    background: none; border: none; cursor: pointer;
+    font-size: 14px; color: #666; padding: 8px 0; font-weight: 600;
+  }
+
+  /* ===== モーダル ===== */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 460px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.3);
+  }
+  .modal h2 { font-size: 16px; margin-bottom: 14px; color: #333; }
+  .field { margin-bottom: 14px; }
+  .field label.field-label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 6px; }
+  .field textarea {
+    width: 100%; min-height: 110px; resize: vertical;
+    border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 14px;
+    font-family: inherit; line-height: 1.6;
+  }
+  .field select {
+    border: 1px solid #ccc; border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 100%;
+    background: #fff;
+  }
+  .cat-options { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cat-option { position: relative; }
+  .cat-option input { position: absolute; opacity: 0; }
+  .cat-option span {
+    display: inline-block; padding: 7px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 700; cursor: pointer; border: 2px solid transparent; color: #333;
+  }
+  .cat-option.cat-normal span  { background: var(--c-normal-bg); }
+  .cat-option.cat-info span    { background: var(--c-info-bg); }
+  .cat-option.cat-caution span { background: var(--c-caution-bg); }
+  .cat-option.cat-urgent span  { background: var(--c-urgent-bg); }
+  .cat-option input:checked + span { border-color: #333; }
+  .vis-row { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; user-select: none; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .btn {
+    border: none; border-radius: 8px; padding: 9px 20px; font-size: 14px; cursor: pointer; font-weight: 700;
+  }
+  .btn.primary { background: var(--header-bg); color: #fff; }
+  .btn.primary:hover { background: #14655e; }
+  .btn.ghost { background: #eee; color: #555; }
+  .btn.ghost:hover { background: #ddd; }
+
+  @media (max-width: 600px) {
+    .board { grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+    header h1 { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="pin">📌</span>クリニック共有付箋ボード</h1>
+  <span class="urgent-badge" id="urgentBadge"></span>
+  <span class="spacer"></span>
+  <div class="name-box">
+    <span>自分の名前:</span>
+    <input type="text" id="myName" placeholder="例: 佐藤" maxlength="20">
+  </div>
+  <button class="add-btn" id="addBtn">＋ 付箋を追加</button>
+</header>
+
+<div class="toolbar">
+  <div class="tabs" id="assigneeTabs"></div>
+  <div class="search-box"><input type="text" id="searchInput" placeholder="🔍 検索"></div>
+  <label class="toggle-hidden">
+    <input type="checkbox" id="showHidden"> 非表示の付箋も見る
+  </label>
+</div>
+
+<main class="board" id="board"></main>
+
+<div class="done-section">
+  <button class="done-toggle" id="doneToggle">▸ 完了した付箋 (0)</button>
+  <div class="board" id="doneBoard" style="display:none; padding: 8px 0 0;"></div>
+</div>
+
+<!-- 追加・編集モーダル -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">付箋を追加</h2>
+    <div class="field">
+      <label class="field-label">内容</label>
+      <textarea id="noteText" placeholder="例: 本日 午後の予約 田中様 → キャンセルになりました" maxlength="2000"></textarea>
+    </div>
+    <div class="field">
+      <label class="field-label">種類</label>
+      <div class="cat-options" id="catOptions">
+        <label class="cat-option cat-normal"><input type="radio" name="cat" value="normal" checked><span>通常</span></label>
+        <label class="cat-option cat-info"><input type="radio" name="cat" value="info"><span>連絡</span></label>
+        <label class="cat-option cat-caution"><input type="radio" name="cat" value="caution"><span>⚠ 要注意</span></label>
+        <label class="cat-option cat-urgent"><input type="radio" name="cat" value="urgent"><span>🚨 緊急</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">宛先</label>
+      <select id="noteAssignee">
+        <option value="all">全員</option>
+        <option value="reception">受付</option>
+        <option value="nurse">看護師</option>
+        <option value="doctor">医師</option>
+        <option value="office">事務</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="vis-row">
+        <input type="checkbox" id="noteVisible" checked>
+        <span>👁 ボードに表示する（OFFにすると「非表示の付箋も見る」をONにした人だけに見えます）</span>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="cancelBtn">キャンセル</button>
+      <button class="btn primary" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var ASSIGNEE_LABELS = { all: '全員', reception: '受付', nurse: '看護師', doctor: '医師', office: '事務' };
+  var CATEGORY_LABELS = { normal: '通常', info: '連絡', caution: '⚠ 要注意', urgent: '🚨 緊急' };
+  var CATEGORY_ORDER = { urgent: 0, caution: 1, info: 2, normal: 3 };
+
+  var state = {
+    notes: [],
+    filter: 'all',      // 表示中の宛先タブ
+    search: '',
+    showHidden: false,
+    showDone: false,
+    editingId: null,    // 編集中の付箋ID（新規は null）
+    lastJson: '',
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var board = $('board');
+  var doneBoard = $('doneBoard');
+
+  // ---- 名前の保存 ----
+  $('myName').value = localStorage.getItem('fusen_name') || '';
+  $('myName').addEventListener('change', function () {
+    localStorage.setItem('fusen_name', this.value.trim());
+  });
+
+  // ---- 宛先タブ ----
+  var tabDefs = [
+    { key: 'all', label: 'すべて' },
+    { key: 'reception', label: '受付' },
+    { key: 'nurse', label: '看護師' },
+    { key: 'doctor', label: '医師' },
+    { key: 'office', label: '事務' },
+  ];
+  var tabsEl = $('assigneeTabs');
+  tabDefs.forEach(function (t) {
+    var b = document.createElement('button');
+    b.className = 'tab' + (t.key === state.filter ? ' active' : '');
+    b.textContent = t.label;
+    b.addEventListener('click', function () {
+      state.filter = t.key;
+      Array.prototype.forEach.call(tabsEl.children, function (c) { c.classList.remove('active'); });
+      b.classList.add('active');
+      render();
+    });
+    tabsEl.appendChild(b);
+  });
+
+  $('searchInput').addEventListener('input', function () {
+    state.search = this.value.trim();
+    render();
+  });
+  $('showHidden').addEventListener('change', function () {
+    state.showHidden = this.checked;
+    render();
+  });
+  $('doneToggle').addEventListener('click', function () {
+    state.showDone = !state.showDone;
+    doneBoard.style.display = state.showDone ? 'grid' : 'none';
+    renderDoneToggleLabel();
+  });
+
+  // ---- 時刻表示 ----
+  function timeAgo(iso) {
+    var diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60) return 'たった今';
+    if (diff < 3600) return Math.floor(diff / 60) + '分前';
+    if (diff < 86400) return Math.floor(diff / 3600) + '時間前';
+    var d = new Date(iso);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+
+  // ---- フィルタ ----
+  function matchesFilter(n) {
+    if (state.filter !== 'all' && n.assignee !== 'all' && n.assignee !== state.filter) return false;
+    if (!state.showHidden && n.visible === false) return false;
+    if (state.search && n.text.toLowerCase().indexOf(state.search.toLowerCase()) === -1) return false;
+    return true;
+  }
+
+  function sortNotes(a, b) {
+    var ca = CATEGORY_ORDER[a.category] !== undefined ? CATEGORY_ORDER[a.category] : 9;
+    var cb = CATEGORY_ORDER[b.category] !== undefined ? CATEGORY_ORDER[b.category] : 9;
+    if (ca !== cb) return ca - cb;
+    return new Date(b.updatedAt) - new Date(a.updatedAt);
+  }
+
+  // ---- カード生成 ----
+  function buildCard(n) {
+    var card = document.createElement('div');
+    card.className = 'note cat-' + n.category +
+      (n.visible === false ? ' is-hidden' : '') +
+      (n.done ? ' is-done' : '');
+
+    var head = document.createElement('div');
+    head.className = 'note-head';
+
+    var catBadge = document.createElement('span');
+    catBadge.className = 'badge cat-' + n.category;
+    catBadge.textContent = CATEGORY_LABELS[n.category] || n.category;
+    head.appendChild(catBadge);
+
+    var asBadge = document.createElement('span');
+    asBadge.className = 'badge assignee';
+    asBadge.textContent = '宛先: ' + (ASSIGNEE_LABELS[n.assignee] || n.assignee);
+    head.appendChild(asBadge);
+
+    if (n.visible === false) {
+      var hidBadge = document.createElement('span');
+      hidBadge.className = 'badge hidden-mark';
+      hidBadge.textContent = '非表示';
+      head.appendChild(hidBadge);
+    }
+    card.appendChild(head);
+
+    var text = document.createElement('div');
+    text.className = 'note-text';
+    text.textContent = n.text;
+    card.appendChild(text);
+
+    var foot = document.createElement('div');
+    foot.className = 'note-foot';
+
+    var meta = document.createElement('span');
+    meta.className = 'note-meta';
+    meta.textContent = (n.author ? n.author + ' ・ ' : '') + timeAgo(n.updatedAt);
+    foot.appendChild(meta);
+
+    var actions = document.createElement('div');
+    actions.className = 'note-actions';
+
+    function iconBtn(label, title, handler) {
+      var b = document.createElement('button');
+      b.className = 'icon-btn';
+      b.textContent = label;
+      b.title = title;
+      b.addEventListener('click', handler);
+      actions.appendChild(b);
+    }
+
+    if (!n.done) {
+      iconBtn('✅', '完了にする', function () { updateNote(n.id, { done: true }); });
+      iconBtn(n.visible === false ? '🙈' : '👁', n.visible === false ? '表示に戻す' : '非表示にする', function () {
+        updateNote(n.id, { visible: n.visible === false });
+      });
+      iconBtn('✏️', '編集', function () { openModal(n); });
+    } else {
+      iconBtn('↩️', 'ボードに戻す', function () { updateNote(n.id, { done: false }); });
+    }
+    iconBtn('🗑️', '削除', function () {
+      if (confirm('この付箋を削除しますか？\n\n「' + n.text.slice(0, 40) + (n.text.length > 40 ? '…' : '') + '」')) {
+        deleteNote(n.id);
+      }
+    });
+
+    foot.appendChild(actions);
+    card.appendChild(foot);
+    return card;
+  }
+
+  // ---- 描画 ----
+  function renderDoneToggleLabel() {
+    var count = state.notes.filter(function (n) { return n.done; }).length;
+    $('doneToggle').textContent = (state.showDone ? '▾' : '▸') + ' 完了した付箋 (' + count + ')';
+  }
+
+  function render() {
+    var active = state.notes.filter(function (n) { return !n.done && matchesFilter(n); }).sort(sortNotes);
+    var done = state.notes.filter(function (n) { return n.done && matchesFilter(n); }).sort(sortNotes);
+
+    board.innerHTML = '';
+    if (active.length === 0) {
+      var msg = document.createElement('div');
+      msg.className = 'empty-msg';
+      msg.textContent = '付箋はありません。「＋ 付箋を追加」から作成できます。';
+      board.appendChild(msg);
+    } else {
+      active.forEach(function (n) { board.appendChild(buildCard(n)); });
+    }
+
+    doneBoard.innerHTML = '';
+    done.forEach(function (n) { doneBoard.appendChild(buildCard(n)); });
+    renderDoneToggleLabel();
+
+    // 緊急バッジ
+    var urgentCount = state.notes.filter(function (n) {
+      return !n.done && n.category === 'urgent' && n.visible !== false;
+    }).length;
+    var badge = $('urgentBadge');
+    if (urgentCount > 0) {
+      badge.style.display = 'inline-block';
+      badge.textContent = '🚨 緊急 ' + urgentCount + '件';
+    } else {
+      badge.style.display = 'none';
+    }
+    document.title = (urgentCount > 0 ? '🚨(' + urgentCount + ') ' : '') + 'クリニック共有付箋ボード';
+  }
+
+  // ---- API ----
+  function fetchNotes() {
+    return fetch('/api/notes')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var json = JSON.stringify(data.notes);
+        if (json !== state.lastJson) {
+          state.lastJson = json;
+          state.notes = data.notes;
+          render();
+        }
+      })
+      .catch(function () { /* 一時的な通信エラーは無視して次のポーリングを待つ */ });
+  }
+
+  function updateNote(id, changes) {
+    var n = state.notes.find(function (x) { return x.id === id; });
+    if (!n) return;
+    var payload = Object.assign({}, n, changes);
+    fetch('/api/notes/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then(fetchNotes);
+  }
+
+  function deleteNote(id) {
+    fetch('/api/notes/' + id, { method: 'DELETE' }).then(fetchNotes);
+  }
+
+  // ---- モーダル ----
+  var overlay = $('modalOverlay');
+
+  function openModal(note) {
+    state.editingId = note ? note.id : null;
+    $('modalTitle').textContent = note ? '付箋を編集' : '付箋を追加';
+    $('noteText').value = note ? note.text : '';
+    $('noteAssignee').value = note ? note.assignee : 'all';
+    $('noteVisible').checked = note ? note.visible !== false : true;
+    var cat = note ? note.category : 'normal';
+    var radios = document.querySelectorAll('input[name="cat"]');
+    Array.prototype.forEach.call(radios, function (r) { r.checked = (r.value === cat); });
+    overlay.classList.add('open');
+    $('noteText').focus();
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    state.editingId = null;
+  }
+
+  $('addBtn').addEventListener('click', function () { openModal(null); });
+  $('cancelBtn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+
+  $('saveBtn').addEventListener('click', function () {
+    var text = $('noteText').value.trim();
+    if (!text) { alert('内容を入力してください。'); return; }
+    var catEl = document.querySelector('input[name="cat"]:checked');
+    var payload = {
+      text: text,
+      category: catEl ? catEl.value : 'normal',
+      assignee: $('noteAssignee').value,
+      visible: $('noteVisible').checked,
+      author: $('myName').value.trim(),
+    };
+
+    var req;
+    if (state.editingId) {
+      var original = state.notes.find(function (x) { return x.id === state.editingId; });
+      req = fetch('/api/notes/' + state.editingId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({}, original, payload)),
+      });
+    } else {
+      req = fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+    req.then(function (r) {
+      if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || '保存に失敗しました'); });
+      closeModal();
+      return fetchNotes();
+    }).catch(function (e) { alert(e.message); });
+  });
+
+  // ---- 自動同期（5秒ごと / モーダル編集中は停止）----
+  setInterval(function () {
+    if (!overlay.classList.contains('open')) fetchNotes();
+  }, 5000);
+
+  fetchNotes();
+})();
+</script>
+</body>
+</html>
