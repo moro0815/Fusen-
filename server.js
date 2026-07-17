@@ -16,12 +16,40 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'notes.json');
+const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const CATEGORIES = ['normal', 'info', 'caution', 'urgent'];
 const ASSIGNEES = ['all', 'reception', 'nurse', 'doctor', 'office'];
 
 let notes = [];
+
+// 端末レジストリ: 端末名 -> 最終アクセス時刻(ms)。
+// ポーリング時に ?device=端末名 を付けてもらうことで自動登録される。
+let devices = {};
+const ONLINE_THRESHOLD_MS = 30 * 1000;
+
+function loadDevices() {
+  try {
+    const names = JSON.parse(fs.readFileSync(DEVICES_FILE, 'utf8'));
+    if (Array.isArray(names)) names.forEach((n) => { if (typeof n === 'string') devices[n] = 0; });
+  } catch (e) { /* ファイルなし */ }
+}
+
+function saveDevices() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = DEVICES_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(Object.keys(devices).sort(), null, 2), 'utf8');
+  fs.renameSync(tmp, DEVICES_FILE);
+}
+
+function deviceList() {
+  const now = Date.now();
+  return Object.keys(devices).sort().map((name) => ({
+    name,
+    online: now - devices[name] < ONLINE_THRESHOLD_MS,
+  }));
+}
 
 function loadNotes() {
   try {
@@ -53,6 +81,8 @@ function sanitizeNoteInput(body, base) {
   if ('assignee' in body && ASSIGNEES.includes(body.assignee)) note.assignee = body.assignee;
   if ('visible' in body) note.visible = !!body.visible;
   if ('done' in body) note.done = !!body.done;
+  if ('popup' in body) note.popup = !!body.popup;
+  if ('popupTarget' in body) note.popupTarget = sanitizeText(body.popupTarget, 30) || 'all';
   return note;
 }
 
@@ -108,7 +138,13 @@ const server = http.createServer(async (req, res) => {
   try {
     // --- API ---
     if (pathname === '/api/notes' && req.method === 'GET') {
-      return sendJson(res, 200, { notes });
+      const dev = sanitizeText(url.searchParams.get('device') || '', 30).trim();
+      if (dev) {
+        const isNew = !(dev in devices);
+        devices[dev] = Date.now();
+        if (isNew) saveDevices();
+      }
+      return sendJson(res, 200, { notes, devices: deviceList() });
     }
 
     if (pathname === '/api/notes' && req.method === 'POST') {
@@ -122,10 +158,14 @@ const server = http.createServer(async (req, res) => {
         assignee: 'all',
         visible: true,
         done: false,
+        popup: false,
+        popupTarget: 'all',
+        popupAt: null,
         createdAt: now,
         updatedAt: now,
       });
       if (!note.text.trim()) return sendJson(res, 400, { error: '内容が空です' });
+      if (note.popup) note.popupAt = now;
       notes.push(note);
       saveNotes();
       return sendJson(res, 201, { note });
@@ -138,8 +178,13 @@ const server = http.createServer(async (req, res) => {
 
       if (req.method === 'PUT') {
         const body = await readBody(req);
-        const updated = sanitizeNoteInput(body, notes[idx]);
+        const old = notes[idx];
+        const updated = sanitizeNoteInput(body, old);
         if (!updated.text.trim()) return sendJson(res, 400, { error: '内容が空です' });
+        // ポップアップが新たにONになった、または内容/宛先端末が変わったら再通知する
+        if (updated.popup && (!old.popup || updated.text !== old.text || updated.popupTarget !== old.popupTarget)) {
+          updated.popupAt = new Date().toISOString();
+        }
         updated.updatedAt = new Date().toISOString();
         notes[idx] = updated;
         saveNotes();
@@ -170,6 +215,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 loadNotes();
+loadDevices();
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('==========================================');

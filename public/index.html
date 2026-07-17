@@ -24,6 +24,7 @@
     font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
     background: var(--board-bg);
     min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* ===== ヘッダー ===== */
@@ -33,7 +34,7 @@
     padding: 10px 16px;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     flex-wrap: wrap;
     position: sticky;
     top: 0;
@@ -56,14 +57,14 @@
   .spacer { flex: 1; }
   .name-box { display: flex; align-items: center; gap: 6px; font-size: 13px; }
   .name-box input {
-    border: none; border-radius: 6px; padding: 6px 10px; font-size: 13px; width: 110px;
+    border: none; border-radius: 6px; padding: 7px 10px; font-size: 13px; width: 100px;
   }
   .add-btn {
     background: #fff;
     color: var(--header-bg);
     border: none;
     border-radius: 8px;
-    padding: 8px 16px;
+    padding: 10px 18px;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -86,7 +87,7 @@
     background: #fff;
     border: 1px solid #d5cebf;
     border-radius: 999px;
-    padding: 6px 14px;
+    padding: 8px 15px;
     font-size: 13px;
     cursor: pointer;
     color: #555;
@@ -100,15 +101,16 @@
   .search-box input {
     border: 1px solid #d5cebf;
     border-radius: 999px;
-    padding: 7px 14px;
+    padding: 8px 14px;
     font-size: 13px;
-    width: 180px;
+    width: 170px;
     background: #fff;
   }
   .toggle-hidden {
     display: flex; align-items: center; gap: 6px;
     font-size: 13px; color: #555; cursor: pointer; user-select: none;
   }
+  .toggle-hidden input { width: 16px; height: 16px; }
 
   /* ===== ボード ===== */
   .board {
@@ -173,6 +175,7 @@
   .badge.cat-urgent  { background: var(--c-urgent); }
   .badge.assignee { background: #fff; color: #555; border: 1px solid #bbb; font-weight: 600; }
   .badge.hidden-mark { background: #777; }
+  .badge.popup-mark { background: #6a4fb3; }
 
   .note-text {
     font-size: 14px;
@@ -192,7 +195,7 @@
   .note-actions { display: flex; gap: 2px; }
   .icon-btn {
     background: none; border: none; cursor: pointer;
-    font-size: 15px; padding: 3px 5px; border-radius: 5px; line-height: 1;
+    font-size: 16px; padding: 5px 7px; border-radius: 6px; line-height: 1;
   }
   .icon-btn:hover { background: rgba(0,0,0,.08); }
 
@@ -204,7 +207,7 @@
   }
   .done-toggle {
     background: none; border: none; cursor: pointer;
-    font-size: 14px; color: #666; padding: 8px 0; font-weight: 600;
+    font-size: 14px; color: #666; padding: 10px 0; font-weight: 600;
   }
 
   /* ===== モーダル ===== */
@@ -223,6 +226,8 @@
     border-radius: 12px;
     width: 100%;
     max-width: 460px;
+    max-height: 92vh;
+    overflow-y: auto;
     padding: 20px;
     box-shadow: 0 10px 40px rgba(0,0,0,.3);
   }
@@ -231,18 +236,18 @@
   .field label.field-label { display: block; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 6px; }
   .field textarea {
     width: 100%; min-height: 110px; resize: vertical;
-    border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 14px;
+    border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 16px;
     font-family: inherit; line-height: 1.6;
   }
   .field select {
-    border: 1px solid #ccc; border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 100%;
+    border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 15px; width: 100%;
     background: #fff;
   }
   .cat-options { display: flex; gap: 6px; flex-wrap: wrap; }
   .cat-option { position: relative; }
   .cat-option input { position: absolute; opacity: 0; }
   .cat-option span {
-    display: inline-block; padding: 7px 14px; border-radius: 8px;
+    display: inline-block; padding: 9px 15px; border-radius: 8px;
     font-size: 13px; font-weight: 700; cursor: pointer; border: 2px solid transparent; color: #333;
   }
   .cat-option.cat-normal span  { background: var(--c-normal-bg); }
@@ -250,19 +255,85 @@
   .cat-option.cat-caution span { background: var(--c-caution-bg); }
   .cat-option.cat-urgent span  { background: var(--c-urgent-bg); }
   .cat-option input:checked + span { border-color: #333; }
-  .vis-row { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; user-select: none; }
+  .vis-row { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; cursor: pointer; user-select: none; }
+  .vis-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
+  .field-note { font-size: 12px; color: #888; margin-top: 4px; padding-left: 26px; }
+  .popup-target-row { margin-top: 8px; padding-left: 26px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
   .btn {
-    border: none; border-radius: 8px; padding: 9px 20px; font-size: 14px; cursor: pointer; font-weight: 700;
+    border: none; border-radius: 8px; padding: 11px 22px; font-size: 14px; cursor: pointer; font-weight: 700;
   }
   .btn.primary { background: var(--header-bg); color: #fff; }
   .btn.primary:hover { background: #14655e; }
   .btn.ghost { background: #eee; color: #555; }
   .btn.ghost:hover { background: #ddd; }
 
-  @media (max-width: 600px) {
-    .board { grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+  /* ===== ポップアップ通知 ===== */
+  .popup-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 16px;
+  }
+  .popup-overlay.open { display: flex; }
+  .popup-card {
+    background: #fff;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 540px;
+    overflow: hidden;
+    box-shadow: 0 14px 50px rgba(0,0,0,.4);
+    animation: popIn .25s ease-out;
+  }
+  @keyframes popIn {
+    0% { transform: scale(.85); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .popup-head {
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .popup-head.cat-normal  { background: var(--c-normal); }
+  .popup-head.cat-info    { background: var(--c-info); }
+  .popup-head.cat-caution { background: var(--c-caution); }
+  .popup-head.cat-urgent  { background: var(--c-urgent); animation: pulse 1.2s infinite; }
+  .popup-body { padding: 20px; }
+  .popup-text {
+    font-size: 19px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 14px;
+  }
+  .popup-meta { font-size: 13px; color: #888; margin-bottom: 18px; }
+  .popup-actions { display: flex; justify-content: center; gap: 10px; }
+  .popup-actions .btn { font-size: 16px; padding: 14px 40px; }
+  .popup-count {
+    text-align: center; font-size: 12px; color: #999; margin-top: 10px;
+  }
+
+  /* ===== タブレット・スマホ向け調整 ===== */
+  @media (pointer: coarse) {
+    .icon-btn { font-size: 19px; padding: 8px 10px; }
+    .tab { padding: 10px 18px; font-size: 14px; }
+    .add-btn { padding: 12px 20px; font-size: 15px; }
+    .toggle-hidden input { width: 20px; height: 20px; }
+  }
+  @media (max-width: 900px) {
+    .board { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; padding: 12px; }
+  }
+  @media (max-width: 520px) {
+    .board { grid-template-columns: 1fr; }
     header h1 { font-size: 15px; }
+    .name-box input { width: 80px; }
   }
 </style>
 </head>
@@ -273,7 +344,11 @@
   <span class="urgent-badge" id="urgentBadge"></span>
   <span class="spacer"></span>
   <div class="name-box">
-    <span>自分の名前:</span>
+    <span>端末名:</span>
+    <input type="text" id="deviceName" placeholder="例: 受付1" maxlength="20" title="この端末（PC・タブレット）の名前。ポップアップの宛先指定に使われます">
+  </div>
+  <div class="name-box">
+    <span>名前:</span>
     <input type="text" id="myName" placeholder="例: 佐藤" maxlength="20">
   </div>
   <button class="add-btn" id="addBtn">＋ 付箋を追加</button>
@@ -323,6 +398,18 @@
     </div>
     <div class="field">
       <label class="vis-row">
+        <input type="checkbox" id="notePopup">
+        <span>🔔 ポップアップで通知する</span>
+      </label>
+      <div class="field-note">対象の端末に、確認ボタンを押すまで消えない通知が表示されます。</div>
+      <div class="popup-target-row" id="popupTargetRow" style="display:none;">
+        <select id="popupTarget">
+          <option value="all">すべての端末</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="vis-row">
         <input type="checkbox" id="noteVisible" checked>
         <span>👁 ボードに表示する（OFFにすると「非表示の付箋も見る」をONにした人だけに見えます）</span>
       </label>
@@ -330,6 +417,21 @@
     <div class="modal-actions">
       <button class="btn ghost" id="cancelBtn">キャンセル</button>
       <button class="btn primary" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ポップアップ通知 -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-card">
+    <div class="popup-head" id="popupHead">🔔 お知らせ</div>
+    <div class="popup-body">
+      <div class="popup-text" id="popupText"></div>
+      <div class="popup-meta" id="popupMeta"></div>
+      <div class="popup-actions">
+        <button class="btn primary" id="popupAckBtn">確認しました</button>
+      </div>
+      <div class="popup-count" id="popupCount"></div>
     </div>
   </div>
 </div>
@@ -344,23 +446,35 @@
 
   var state = {
     notes: [],
-    filter: 'all',      // 表示中の宛先タブ
+    devices: [],
+    filter: 'all',
     search: '',
     showHidden: false,
     showDone: false,
-    editingId: null,    // 編集中の付箋ID（新規は null）
+    editingId: null,
     lastJson: '',
+    currentPopup: null, // 表示中のポップアップ付箋
   };
 
   var $ = function (id) { return document.getElementById(id); };
   var board = $('board');
   var doneBoard = $('doneBoard');
 
-  // ---- 名前の保存 ----
+  // ---- 名前・端末名の保存 ----
   $('myName').value = localStorage.getItem('fusen_name') || '';
   $('myName').addEventListener('change', function () {
     localStorage.setItem('fusen_name', this.value.trim());
   });
+  $('deviceName').value = localStorage.getItem('fusen_device') || '';
+  $('deviceName').addEventListener('change', function () {
+    localStorage.setItem('fusen_device', this.value.trim());
+    fetchNotes(); // すぐサーバーに端末登録
+  });
+
+  // ---- 確認済みポップアップの記録（この端末内のみ）----
+  var acked = {};
+  try { acked = JSON.parse(localStorage.getItem('fusen_acked') || '{}') || {}; } catch (e) { acked = {}; }
+  function saveAcked() { localStorage.setItem('fusen_acked', JSON.stringify(acked)); }
 
   // ---- 宛先タブ ----
   var tabDefs = [
@@ -444,6 +558,13 @@
     asBadge.textContent = '宛先: ' + (ASSIGNEE_LABELS[n.assignee] || n.assignee);
     head.appendChild(asBadge);
 
+    if (n.popup) {
+      var popBadge = document.createElement('span');
+      popBadge.className = 'badge popup-mark';
+      popBadge.textContent = '🔔 ' + (n.popupTarget === 'all' ? '全端末' : n.popupTarget);
+      head.appendChild(popBadge);
+    }
+
     if (n.visible === false) {
       var hidBadge = document.createElement('span');
       hidBadge.className = 'badge hidden-mark';
@@ -521,7 +642,6 @@
     done.forEach(function (n) { doneBoard.appendChild(buildCard(n)); });
     renderDoneToggleLabel();
 
-    // 緊急バッジ
     var urgentCount = state.notes.filter(function (n) {
       return !n.done && n.category === 'urgent' && n.visible !== false;
     }).length;
@@ -535,17 +655,99 @@
     document.title = (urgentCount > 0 ? '🚨(' + urgentCount + ') ' : '') + 'クリニック共有付箋ボード';
   }
 
+  // ---- 通知音 ----
+  function playChime() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      var t = ctx.currentTime;
+      [880, 660, 880].forEach(function (freq, i) {
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        o.connect(g);
+        g.connect(ctx.destination);
+        var start = t + i * 0.22;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
+        o.start(start);
+        o.stop(start + 0.22);
+      });
+    } catch (e) { /* 音が出せない環境では無視 */ }
+  }
+
+  // ---- ポップアップ通知 ----
+  var popupOverlay = $('popupOverlay');
+
+  function pendingPopups() {
+    var dev = $('deviceName').value.trim();
+    return state.notes.filter(function (n) {
+      return n.popup && n.popupAt && !n.done &&
+        (n.popupTarget === 'all' || n.popupTarget === dev) &&
+        acked[n.id] !== n.popupAt;
+    }).sort(sortNotes);
+  }
+
+  function checkPopups() {
+    // 削除された付箋の確認記録を掃除
+    var ids = {};
+    state.notes.forEach(function (n) { ids[n.id] = true; });
+    var dirty = false;
+    Object.keys(acked).forEach(function (k) {
+      if (!ids[k]) { delete acked[k]; dirty = true; }
+    });
+    if (dirty) saveAcked();
+
+    var pending = pendingPopups();
+    if (pending.length === 0) {
+      state.currentPopup = null;
+      popupOverlay.classList.remove('open');
+      return;
+    }
+    var top = pending[0];
+    var isNew = !state.currentPopup ||
+      state.currentPopup.id !== top.id || state.currentPopup.popupAt !== top.popupAt;
+    if (isNew) {
+      state.currentPopup = top;
+      var head = $('popupHead');
+      head.className = 'popup-head cat-' + top.category;
+      head.textContent = '🔔 ' + (CATEGORY_LABELS[top.category] || '') + ' のお知らせ';
+      $('popupText').textContent = top.text;
+      $('popupMeta').textContent =
+        (top.author ? top.author + ' ・ ' : '') + timeAgo(top.popupAt) +
+        ' ・ 宛先: ' + (ASSIGNEE_LABELS[top.assignee] || top.assignee);
+      $('popupCount').textContent = pending.length > 1 ? '未確認の通知が あと' + (pending.length - 1) + '件あります' : '';
+      popupOverlay.classList.add('open');
+      playChime();
+    }
+  }
+
+  $('popupAckBtn').addEventListener('click', function () {
+    if (state.currentPopup) {
+      acked[state.currentPopup.id] = state.currentPopup.popupAt;
+      saveAcked();
+      state.currentPopup = null;
+    }
+    checkPopups(); // 次の未確認通知があれば続けて表示
+  });
+
   // ---- API ----
   function fetchNotes() {
-    return fetch('/api/notes')
+    var dev = $('deviceName').value.trim();
+    return fetch('/api/notes' + (dev ? '?device=' + encodeURIComponent(dev) : ''))
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        state.devices = data.devices || [];
         var json = JSON.stringify(data.notes);
         if (json !== state.lastJson) {
           state.lastJson = json;
           state.notes = data.notes;
           render();
         }
+        checkPopups();
       })
       .catch(function () { /* 一時的な通信エラーは無視して次のポーリングを待つ */ });
   }
@@ -568,12 +770,36 @@
   // ---- モーダル ----
   var overlay = $('modalOverlay');
 
+  function fillPopupTargets(selected) {
+    var sel = $('popupTarget');
+    sel.innerHTML = '';
+    var optAll = document.createElement('option');
+    optAll.value = 'all';
+    optAll.textContent = 'すべての端末';
+    sel.appendChild(optAll);
+    var names = state.devices.map(function (d) { return d.name; });
+    // 編集中の付箋が既に持っている宛先端末が一覧に無ければ追加しておく
+    if (selected && selected !== 'all' && names.indexOf(selected) === -1) names.push(selected);
+    names.forEach(function (name) {
+      var d = state.devices.find(function (x) { return x.name === name; });
+      var opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name + (d && d.online ? '（接続中）' : '');
+      sel.appendChild(opt);
+    });
+    sel.value = selected || 'all';
+    if (sel.value !== (selected || 'all')) sel.value = 'all';
+  }
+
   function openModal(note) {
     state.editingId = note ? note.id : null;
     $('modalTitle').textContent = note ? '付箋を編集' : '付箋を追加';
     $('noteText').value = note ? note.text : '';
     $('noteAssignee').value = note ? note.assignee : 'all';
     $('noteVisible').checked = note ? note.visible !== false : true;
+    $('notePopup').checked = note ? !!note.popup : false;
+    $('popupTargetRow').style.display = $('notePopup').checked ? 'block' : 'none';
+    fillPopupTargets(note ? note.popupTarget : 'all');
     var cat = note ? note.category : 'normal';
     var radios = document.querySelectorAll('input[name="cat"]');
     Array.prototype.forEach.call(radios, function (r) { r.checked = (r.value === cat); });
@@ -585,6 +811,10 @@
     overlay.classList.remove('open');
     state.editingId = null;
   }
+
+  $('notePopup').addEventListener('change', function () {
+    $('popupTargetRow').style.display = this.checked ? 'block' : 'none';
+  });
 
   $('addBtn').addEventListener('click', function () { openModal(null); });
   $('cancelBtn').addEventListener('click', closeModal);
@@ -602,8 +832,13 @@
       category: catEl ? catEl.value : 'normal',
       assignee: $('noteAssignee').value,
       visible: $('noteVisible').checked,
+      popup: $('notePopup').checked,
+      popupTarget: $('popupTarget').value || 'all',
       author: $('myName').value.trim(),
     };
+
+    // 自分が出した通知は自分の端末では確認済みにしておく
+    var selfAck = payload.popup;
 
     var req;
     if (state.editingId) {
@@ -622,12 +857,18 @@
     }
     req.then(function (r) {
       if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || '保存に失敗しました'); });
+      return r.json();
+    }).then(function (d) {
+      if (d && d.note && selfAck && d.note.popupAt) {
+        acked[d.note.id] = d.note.popupAt;
+        saveAcked();
+      }
       closeModal();
       return fetchNotes();
     }).catch(function (e) { alert(e.message); });
   });
 
-  // ---- 自動同期（5秒ごと / モーダル編集中は停止）----
+  // ---- 自動同期(5秒ごと / モーダル編集中は停止) ----
   setInterval(function () {
     if (!overlay.classList.contains('open')) fetchNotes();
   }, 5000);
