@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>クリニック共有付箋ボード</title>
+<title>クリニック共有ボード</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📌</text></svg>">
 <style>
   :root {
@@ -18,6 +18,13 @@
     --c-info-bg: #d9e8ff;
     --c-normal: #b8a534;
     --c-normal-bg: #fff6b8;
+    /* 患者フローの各段階の色 */
+    --s-reception: #607d8b;
+    --s-waiting: #1e6fd9;
+    --s-consulting: #2e9e5b;
+    --s-treatment: #6a4fb3;
+    --s-checkout: #ef8f00;
+    --s-done: #9e9e9e;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -41,7 +48,7 @@
     z-index: 50;
     box-shadow: 0 2px 6px rgba(0,0,0,.2);
   }
-  header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
+  header h1 { font-size: 17px; font-weight: 700; white-space: nowrap; }
   header h1 .pin { margin-right: 4px; }
   .head-badge {
     color: #fff;
@@ -55,9 +62,23 @@
   #dueBadge { background: var(--c-caution); }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
   .spacer { flex: 1; }
+
+  /* ビュー切替（付箋 / 患者） */
+  .view-switch { display: flex; background: rgba(255,255,255,.2); border-radius: 999px; padding: 3px; }
+  .view-switch button {
+    border: none; background: none; color: #fff; font-size: 14px; font-weight: 700;
+    padding: 7px 16px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  }
+  .view-switch button.active { background: #fff; color: var(--header-bg); }
+
+  .tool-btn {
+    background: rgba(255,255,255,.2); color: #fff; border: none; border-radius: 8px;
+    padding: 8px 11px; font-size: 15px; cursor: pointer; line-height: 1;
+  }
+  .tool-btn:hover { background: rgba(255,255,255,.35); }
   .name-box { display: flex; align-items: center; gap: 6px; font-size: 13px; }
   .name-box input {
-    border: none; border-radius: 6px; padding: 7px 10px; font-size: 13px; width: 100px;
+    border: none; border-radius: 6px; padding: 7px 10px; font-size: 13px; width: 92px;
   }
   .add-btn {
     background: #fff;
@@ -103,7 +124,7 @@
     border-radius: 999px;
     padding: 8px 14px;
     font-size: 13px;
-    width: 170px;
+    width: 160px;
     background: #fff;
   }
   .toggle-hidden {
@@ -111,6 +132,24 @@
     font-size: 13px; color: #555; cursor: pointer; user-select: none;
   }
   .toggle-hidden input { width: 16px; height: 16px; }
+
+  /* クイックテンプレート */
+  .templates-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 10px 16px 0; max-width: 1400px; margin: 0 auto;
+  }
+  .tpl-label { font-size: 12px; color: #888; font-weight: 700; }
+  .tpl-chip {
+    background: #fff; border: 1px solid #cfe0dd; color: var(--header-bg);
+    border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .tpl-chip:hover { background: #eef4f3; }
+  .tpl-chip .cat-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .tpl-manage {
+    background: none; border: 1px dashed #bbb; color: #888;
+    border-radius: 999px; padding: 8px 12px; font-size: 12px; cursor: pointer;
+  }
 
   /* ===== ボード ===== */
   .board {
@@ -142,7 +181,6 @@
     word-break: break-word;
   }
   .note::before {
-    /* テープ風の飾り */
     content: '';
     position: absolute;
     top: -8px;
@@ -155,12 +193,7 @@
   }
   .note.is-pinned::before {
     content: '📌';
-    background: none;
-    box-shadow: none;
-    font-size: 20px;
-    top: -12px;
-    width: auto;
-    height: auto;
+    background: none; box-shadow: none; font-size: 20px; top: -12px; width: auto; height: auto;
   }
   .note.cat-normal  { background: var(--c-normal-bg); }
   .note.cat-info    { background: var(--c-info-bg); }
@@ -189,25 +222,12 @@
   .badge.due-today { background: var(--c-caution); }
   .badge.due-over { background: var(--c-urgent); animation: pulse 1.2s infinite; }
 
-  .note-text {
-    font-size: 14px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    flex: 1;
-  }
-  .note-acks {
-    font-size: 11px;
-    color: #2e7d32;
-    line-height: 1.5;
-  }
+  .note-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; flex: 1; }
+  .note-acks { font-size: 11px; color: #2e7d32; line-height: 1.5; }
   .note-acks.none { color: #999; }
   .note-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    border-top: 1px dashed rgba(0,0,0,.15);
-    padding-top: 6px;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    border-top: 1px dashed rgba(0,0,0,.15); padding-top: 6px;
   }
   .note-meta { font-size: 11px; color: #777; }
   .note-actions { display: flex; gap: 2px; }
@@ -219,37 +239,89 @@
   .icon-btn.active-pin { background: rgba(0,0,0,.12); border-radius: 6px; }
 
   /* ===== 完了セクション ===== */
-  .done-section {
-    max-width: 1400px;
-    margin: 8px auto 40px;
-    padding: 0 16px;
-  }
+  .done-section { max-width: 1400px; margin: 8px auto 40px; padding: 0 16px; }
   .done-toggle {
     background: none; border: none; cursor: pointer;
     font-size: 14px; color: #666; padding: 10px 0; font-weight: 600;
   }
   .done-hint { font-size: 11px; color: #999; margin-left: 8px; font-weight: 400; }
 
+  /* ===== 患者フローボード ===== */
+  .patient-toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 14px 16px 0; max-width: 1500px; margin: 0 auto;
+  }
+  .patient-toolbar input {
+    border: 1px solid #d5cebf; border-radius: 8px; padding: 9px 12px; font-size: 15px; background: #fff;
+  }
+  #patNumber { width: 110px; font-weight: 700; }
+  #patMemo { width: 200px; }
+  .patient-toolbar .add-btn { padding: 10px 18px; }
+  .pat-clear {
+    background: #fff; border: 1px solid #d5cebf; color: #777;
+    border-radius: 8px; padding: 9px 12px; font-size: 12px; cursor: pointer;
+  }
+  .flow-hint { font-size: 12px; color: #999; padding: 6px 16px 0; max-width: 1500px; margin: 0 auto; }
+
+  .flow-board {
+    display: flex; gap: 12px; overflow-x: auto; align-items: flex-start;
+    padding: 12px 16px 30px; max-width: 1500px; margin: 0 auto;
+  }
+  .flow-col {
+    flex: 1 0 190px; min-width: 190px; background: #fbf8f2; border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); display: flex; flex-direction: column;
+  }
+  .flow-col-head {
+    color: #fff; font-weight: 700; font-size: 14px; padding: 10px 12px;
+    border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;
+  }
+  .flow-col-head .cnt { background: rgba(255,255,255,.3); border-radius: 999px; padding: 1px 9px; font-size: 12px; }
+  .flow-col.s-reception .flow-col-head { background: var(--s-reception); }
+  .flow-col.s-waiting .flow-col-head { background: var(--s-waiting); }
+  .flow-col.s-consulting .flow-col-head { background: var(--s-consulting); }
+  .flow-col.s-treatment .flow-col-head { background: var(--s-treatment); }
+  .flow-col.s-checkout .flow-col-head { background: var(--s-checkout); }
+  .flow-col.s-done .flow-col-head { background: var(--s-done); }
+  .flow-col-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 40px; }
+  .flow-empty { color: #bbb; font-size: 12px; text-align: center; padding: 8px 0; }
+
+  .pat-card {
+    background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    padding: 10px; border-left: 5px solid #ccc;
+  }
+  .flow-col.s-reception .pat-card { border-left-color: var(--s-reception); }
+  .flow-col.s-waiting .pat-card { border-left-color: var(--s-waiting); }
+  .flow-col.s-consulting .pat-card { border-left-color: var(--s-consulting); }
+  .flow-col.s-treatment .pat-card { border-left-color: var(--s-treatment); }
+  .flow-col.s-checkout .pat-card { border-left-color: var(--s-checkout); }
+  .flow-col.s-done .pat-card { border-left-color: var(--s-done); opacity: .8; }
+  .pat-top { display: flex; align-items: baseline; gap: 6px; }
+  .pat-number { font-size: 22px; font-weight: 800; color: #333; line-height: 1.1; }
+  .pat-number .ban { font-size: 13px; font-weight: 700; color: #999; margin-left: 1px; }
+  .pat-memo { font-size: 13px; color: #555; margin-top: 3px; word-break: break-word; }
+  .pat-elapsed { font-size: 11px; color: #888; margin-top: 4px; }
+  .pat-elapsed.warn { color: var(--c-caution); font-weight: 700; }
+  .pat-elapsed.over { color: var(--c-urgent); font-weight: 700; }
+  .pat-actions { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+  .pat-next {
+    flex: 1; background: var(--header-bg); color: #fff; border: none; border-radius: 7px;
+    padding: 9px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .pat-next:hover { background: #14655e; }
+  .pat-back, .pat-del {
+    background: #eee; border: none; border-radius: 7px; padding: 9px 10px; font-size: 13px; cursor: pointer; color: #666;
+  }
+  .pat-back:hover, .pat-del:hover { background: #ddd; }
+
   /* ===== モーダル ===== */
   .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.45);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    padding: 16px;
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px;
   }
   .modal-overlay.open { display: flex; }
   .modal {
-    background: #fff;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 460px;
-    max-height: 92vh;
-    overflow-y: auto;
-    padding: 20px;
-    box-shadow: 0 10px 40px rgba(0,0,0,.3);
+    background: #fff; border-radius: 12px; width: 100%; max-width: 460px;
+    max-height: 92vh; overflow-y: auto; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.3);
   }
   .modal h2 { font-size: 16px; margin-bottom: 14px; color: #333; }
   .field { margin-bottom: 14px; }
@@ -259,9 +331,11 @@
     border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 16px;
     font-family: inherit; line-height: 1.6;
   }
+  .field input.text-input {
+    width: 100%; border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 16px; font-family: inherit;
+  }
   .field select {
-    border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 15px; width: 100%;
-    background: #fff;
+    border: 1px solid #ccc; border-radius: 8px; padding: 10px; font-size: 15px; width: 100%; background: #fff;
   }
   .cat-options { display: flex; gap: 6px; flex-wrap: wrap; }
   .cat-option { position: relative; }
@@ -289,72 +363,60 @@
   .field-note { font-size: 12px; color: #888; margin-top: 4px; padding-left: 26px; }
   .popup-target-row { margin-top: 8px; padding-left: 26px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-  .btn {
-    border: none; border-radius: 8px; padding: 11px 22px; font-size: 14px; cursor: pointer; font-weight: 700;
-  }
+  .btn { border: none; border-radius: 8px; padding: 11px 22px; font-size: 14px; cursor: pointer; font-weight: 700; }
   .btn.primary { background: var(--header-bg); color: #fff; }
   .btn.primary:hover { background: #14655e; }
   .btn.ghost { background: #eee; color: #555; }
   .btn.ghost:hover { background: #ddd; }
 
+  /* テンプレート管理 */
+  .tpl-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .tpl-item {
+    display: flex; align-items: center; gap: 8px; border: 1px solid #eee;
+    border-radius: 8px; padding: 8px 10px;
+  }
+  .tpl-item .tpl-item-label { font-weight: 700; font-size: 13px; }
+  .tpl-item .tpl-item-text { font-size: 12px; color: #888; flex: 1; word-break: break-word; }
+  .tpl-item button { background: none; border: none; color: #c00; font-size: 16px; cursor: pointer; }
+
   /* ===== ポップアップ通知 ===== */
   .popup-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.6);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 200;
-    padding: 16px;
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px;
   }
   .popup-overlay.open { display: flex; }
   .popup-card {
-    background: #fff;
-    border-radius: 14px;
-    width: 100%;
-    max-width: 540px;
-    overflow: hidden;
-    box-shadow: 0 14px 50px rgba(0,0,0,.4);
-    animation: popIn .25s ease-out;
+    background: #fff; border-radius: 14px; width: 100%; max-width: 540px;
+    overflow: hidden; box-shadow: 0 14px 50px rgba(0,0,0,.4); animation: popIn .25s ease-out;
   }
-  @keyframes popIn {
-    0% { transform: scale(.85); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-  }
-  .popup-head {
-    color: #fff;
-    font-size: 17px;
-    font-weight: 700;
-    padding: 14px 20px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  @keyframes popIn { 0% { transform: scale(.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .popup-head { color: #fff; font-size: 17px; font-weight: 700; padding: 14px 20px; display: flex; align-items: center; gap: 8px; }
   .popup-head.cat-normal  { background: var(--c-normal); }
   .popup-head.cat-info    { background: var(--c-info); }
   .popup-head.cat-caution { background: var(--c-caution); }
   .popup-head.cat-urgent  { background: var(--c-urgent); animation: pulse 1.2s infinite; }
   .popup-body { padding: 20px; }
-  .popup-text {
-    font-size: 19px;
-    line-height: 1.7;
-    white-space: pre-wrap;
-    word-break: break-word;
-    margin-bottom: 14px;
-  }
+  .popup-text { font-size: 19px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; margin-bottom: 14px; }
   .popup-meta { font-size: 13px; color: #888; margin-bottom: 18px; }
   .popup-actions { display: flex; justify-content: center; gap: 10px; }
   .popup-actions .btn { font-size: 16px; padding: 14px 40px; }
-  .popup-count {
-    text-align: center; font-size: 12px; color: #999; margin-top: 10px;
-  }
+  .popup-count { text-align: center; font-size: 12px; color: #999; margin-top: 10px; }
 
-  /* ===== タブレット・スマホ向け調整 ===== */
+  /* トースト */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #333; color: #fff; padding: 12px 22px; border-radius: 999px; font-size: 14px;
+    z-index: 300; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== タブレット・スマホ ===== */
   @media (pointer: coarse) {
     .icon-btn { font-size: 19px; padding: 8px 10px; }
     .tab { padding: 10px 18px; font-size: 14px; }
     .add-btn { padding: 12px 20px; font-size: 15px; }
     .toggle-hidden input { width: 20px; height: 20px; }
+    .tpl-chip { padding: 10px 16px; font-size: 14px; }
   }
   @media (max-width: 900px) {
     .board { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; padding: 12px; }
@@ -362,20 +424,39 @@
   @media (max-width: 520px) {
     .board { grid-template-columns: 1fr; }
     header h1 { font-size: 15px; }
-    .name-box input { width: 80px; }
+    .name-box input { width: 76px; }
   }
+
+  /* ===== 印刷（朝礼・申し送り用） ===== */
+  @media print {
+    header, .toolbar, .templates-bar, .patient-toolbar, .flow-hint,
+    .done-section, .note-actions, .no-print { display: none !important; }
+    body { background: #fff; }
+    .board { display: block; padding: 0; }
+    .note { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc !important;
+      box-shadow: none; margin-bottom: 8px; animation: none !important; }
+    .note::before { display: none; }
+    .print-title { display: block !important; font-size: 18px; font-weight: 700; margin: 0 0 12px; }
+  }
+  .print-title { display: none; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1><span class="pin">📌</span>クリニック共有付箋ボード</h1>
+  <h1><span class="pin">📌</span>クリニック共有ボード</h1>
   <span class="head-badge" id="urgentBadge"></span>
   <span class="head-badge" id="dueBadge"></span>
   <span class="spacer"></span>
+  <div class="view-switch">
+    <button id="viewNotesBtn" class="active">📌 付箋</button>
+    <button id="viewPatientsBtn">🏥 患者フロー</button>
+  </div>
+  <button class="tool-btn" id="soundBtn" title="通知音のON/OFF">🔔</button>
+  <button class="tool-btn no-print" id="printBtn" title="今の付箋を印刷（朝礼・申し送り用）">🖨</button>
   <div class="name-box">
-    <span>端末名:</span>
-    <input type="text" id="deviceName" placeholder="例: 受付1" maxlength="20" title="この端末（PC・タブレット）の名前。ポップアップの宛先指定や確認履歴に使われます">
+    <span>端末:</span>
+    <input type="text" id="deviceName" placeholder="例: 受付1" maxlength="20" title="この端末の名前。ポップアップの宛先指定や確認履歴に使われます">
   </div>
   <div class="name-box">
     <span>名前:</span>
@@ -384,19 +465,39 @@
   <button class="add-btn" id="addBtn">＋ 付箋を追加</button>
 </header>
 
-<div class="toolbar">
-  <div class="tabs" id="assigneeTabs"></div>
-  <div class="search-box"><input type="text" id="searchInput" placeholder="🔍 検索"></div>
-  <label class="toggle-hidden">
-    <input type="checkbox" id="showHidden"> 非表示の付箋も見る
-  </label>
+<!-- ===== 付箋ビュー ===== -->
+<div id="notesView">
+  <div class="toolbar">
+    <div class="tabs" id="assigneeTabs"></div>
+    <div class="search-box"><input type="text" id="searchInput" placeholder="🔍 検索"></div>
+    <label class="toggle-hidden">
+      <input type="checkbox" id="showHidden"> 非表示の付箋も見る
+    </label>
+  </div>
+
+  <div class="templates-bar" id="templatesBar"></div>
+
+  <div class="print-title" id="printTitle"></div>
+  <main class="board" id="board"></main>
+
+  <div class="done-section">
+    <button class="done-toggle" id="doneToggle">▸ 完了した付箋 (0)</button><span class="done-hint">※完了から7日で自動的に削除されます</span>
+    <div class="board" id="doneBoard" style="display:none; padding: 8px 0 0;"></div>
+  </div>
 </div>
 
-<main class="board" id="board"></main>
-
-<div class="done-section">
-  <button class="done-toggle" id="doneToggle">▸ 完了した付箋 (0)</button><span class="done-hint">※完了から7日で自動的に削除されます</span>
-  <div class="board" id="doneBoard" style="display:none; padding: 8px 0 0;"></div>
+<!-- ===== 患者フロービュー ===== -->
+<div id="patientsView" style="display:none;">
+  <div class="patient-toolbar">
+    <input type="text" id="patNumber" placeholder="受付番号" maxlength="12" inputmode="numeric">
+    <input type="text" id="patMemo" placeholder="メモ（任意・例: 予防接種）" maxlength="60">
+    <button class="add-btn" id="patAddBtn">＋ 受付</button>
+    <span class="spacer"></span>
+    <button class="pat-clear" id="patClearDone">完了の方を消す</button>
+    <button class="pat-clear" id="patClearAll">全員消す</button>
+  </div>
+  <div class="flow-hint">「次へ ▶」で患者さんを次の段階へ進めます。全端末にリアルタイムで反映されます。氏名など個人情報は入力しないでください（受付番号＋簡単なメモのみ）。</div>
+  <div class="flow-board" id="flowBoard"></div>
 </div>
 
 <!-- 追加・編集モーダル -->
@@ -461,6 +562,46 @@
   </div>
 </div>
 
+<!-- テンプレート管理モーダル -->
+<div class="modal-overlay" id="tplModalOverlay">
+  <div class="modal">
+    <h2>クイックテンプレートの編集</h2>
+    <div class="tpl-list" id="tplList"></div>
+    <h2 style="font-size:14px;">新しいテンプレートを追加</h2>
+    <div class="field">
+      <label class="field-label">ボタン名（短く）</label>
+      <input type="text" class="text-input" id="tplLabel" placeholder="例: 点滴準備" maxlength="30">
+    </div>
+    <div class="field">
+      <label class="field-label">付箋の内容</label>
+      <input type="text" class="text-input" id="tplText" placeholder="例: 点滴の準備をお願いします" maxlength="500">
+    </div>
+    <div class="field">
+      <label class="field-label">種類</label>
+      <select id="tplCategory">
+        <option value="normal">通常</option>
+        <option value="info" selected>連絡</option>
+        <option value="caution">⚠ 要注意</option>
+        <option value="urgent">🚨 緊急</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label">宛先</label>
+      <select id="tplAssignee">
+        <option value="all">全員</option>
+        <option value="reception">受付</option>
+        <option value="nurse">看護師</option>
+        <option value="doctor">医師</option>
+        <option value="office">事務</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="tplCloseBtn">閉じる</button>
+      <button class="btn primary" id="tplAddBtn">追加</button>
+    </div>
+  </div>
+</div>
+
 <!-- ポップアップ通知 -->
 <div class="popup-overlay" id="popupOverlay">
   <div class="popup-card">
@@ -476,53 +617,99 @@
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
 (function () {
   'use strict';
 
   var ASSIGNEE_LABELS = { all: '全員', reception: '受付', nurse: '看護師', doctor: '医師', office: '事務' };
   var CATEGORY_LABELS = { normal: '通常', info: '連絡', caution: '⚠ 要注意', urgent: '🚨 緊急' };
+  var CATEGORY_COLORS = { normal: '#b8a534', info: '#1e6fd9', caution: '#ef8f00', urgent: '#e53935' };
   var CATEGORY_ORDER = { urgent: 0, caution: 1, info: 2, normal: 3 };
 
+  var PATIENT_STATUSES = ['reception', 'waiting', 'consulting', 'treatment', 'checkout', 'done'];
+  var STATUS_LABELS = {
+    reception: '受付', waiting: '待合', consulting: '診察中',
+    treatment: '処置', checkout: '会計', done: '完了',
+  };
+  var NEXT_LABELS = {
+    reception: '待合へ ▶', waiting: '診察へ ▶', consulting: '処置へ ▶',
+    treatment: '会計へ ▶', checkout: '完了 ✓',
+  };
+
   var state = {
-    notes: [],
-    devices: [],
-    filter: 'all',
-    search: '',
-    showHidden: false,
-    showDone: false,
-    editingId: null,
-    lastJson: '',
-    currentPopup: null,
+    notes: [], devices: [], patients: [], templates: [],
+    view: 'notes',
+    filter: 'all', search: '', showHidden: false, showDone: false,
+    editingId: null, currentPopup: null,
+    soundOn: localStorage.getItem('fusen_sound') !== 'off',
+    lastNotesSig: '', lastPatientsSig: '', lastTemplatesSig: '',
   };
 
   var $ = function (id) { return document.getElementById(id); };
   var board = $('board');
   var doneBoard = $('doneBoard');
+  var flowBoard = $('flowBoard');
 
-  // ---- 名前・端末名の保存 ----
+  // ---- トースト ----
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2000);
+  }
+
+  // ---- 名前・端末名・音設定 ----
   $('myName').value = localStorage.getItem('fusen_name') || '';
-  $('myName').addEventListener('change', function () {
-    localStorage.setItem('fusen_name', this.value.trim());
-  });
+  $('myName').addEventListener('change', function () { localStorage.setItem('fusen_name', this.value.trim()); });
   $('deviceName').value = localStorage.getItem('fusen_device') || '';
   $('deviceName').addEventListener('change', function () {
     localStorage.setItem('fusen_device', this.value.trim());
-    fetchNotes();
+    fetchState();
+  });
+  function renderSoundBtn() { $('soundBtn').textContent = state.soundOn ? '🔔' : '🔕'; }
+  $('soundBtn').addEventListener('click', function () {
+    state.soundOn = !state.soundOn;
+    localStorage.setItem('fusen_sound', state.soundOn ? 'on' : 'off');
+    renderSoundBtn();
+    toast(state.soundOn ? '通知音: ON' : '通知音: OFF（この端末のみ）');
+  });
+  renderSoundBtn();
+
+  $('printBtn').addEventListener('click', function () {
+    var now = new Date();
+    $('printTitle').textContent = 'クリニック共有付箋ボード（' +
+      (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
+      now.getHours() + ':' + ('0' + now.getMinutes()).slice(-2) + ' 時点）';
+    window.print();
   });
 
-  // ---- 確認済みポップアップの記録（この端末内のみ）----
+  // ---- 確認済みポップアップ記録（この端末内のみ）----
   var acked = {};
   try { acked = JSON.parse(localStorage.getItem('fusen_acked') || '{}') || {}; } catch (e) { acked = {}; }
   function saveAcked() { localStorage.setItem('fusen_acked', JSON.stringify(acked)); }
 
+  // ---- ビュー切替 ----
+  function setView(v) {
+    state.view = v;
+    $('notesView').style.display = v === 'notes' ? 'block' : 'none';
+    $('patientsView').style.display = v === 'patients' ? 'block' : 'none';
+    $('viewNotesBtn').classList.toggle('active', v === 'notes');
+    $('viewPatientsBtn').classList.toggle('active', v === 'patients');
+    $('addBtn').style.display = v === 'notes' ? 'inline-block' : 'none';
+    $('printBtn').style.display = v === 'notes' ? 'inline-block' : 'none';
+    if (v === 'notes') renderNotes(); else renderPatients();
+  }
+  $('viewNotesBtn').addEventListener('click', function () { setView('notes'); });
+  $('viewPatientsBtn').addEventListener('click', function () { setView('patients'); });
+
   // ---- 宛先タブ ----
   var tabDefs = [
-    { key: 'all', label: 'すべて' },
-    { key: 'reception', label: '受付' },
-    { key: 'nurse', label: '看護師' },
-    { key: 'doctor', label: '医師' },
-    { key: 'office', label: '事務' },
+    { key: 'all', label: 'すべて' }, { key: 'reception', label: '受付' },
+    { key: 'nurse', label: '看護師' }, { key: 'doctor', label: '医師' }, { key: 'office', label: '事務' },
   ];
   var tabsEl = $('assigneeTabs');
   tabDefs.forEach(function (t) {
@@ -533,64 +720,50 @@
       state.filter = t.key;
       Array.prototype.forEach.call(tabsEl.children, function (c) { c.classList.remove('active'); });
       b.classList.add('active');
-      render();
+      renderNotes();
     });
     tabsEl.appendChild(b);
   });
 
-  $('searchInput').addEventListener('input', function () {
-    state.search = this.value.trim();
-    render();
-  });
-  $('showHidden').addEventListener('change', function () {
-    state.showHidden = this.checked;
-    render();
-  });
+  $('searchInput').addEventListener('input', function () { state.search = this.value.trim(); renderNotes(); });
+  $('showHidden').addEventListener('change', function () { state.showHidden = this.checked; renderNotes(); });
   $('doneToggle').addEventListener('click', function () {
     state.showDone = !state.showDone;
     doneBoard.style.display = state.showDone ? 'grid' : 'none';
     renderDoneToggleLabel();
   });
 
-  // ---- 時刻表示 ----
+  // ---- 時刻 ----
+  function minutesSince(iso) { return Math.floor((Date.now() - new Date(iso).getTime()) / 60000); }
   function timeAgo(iso) {
     var diff = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diff < 60) return 'たった今';
     if (diff < 3600) return Math.floor(diff / 60) + '分前';
     if (diff < 86400) return Math.floor(diff / 3600) + '時間前';
     var d = new Date(iso);
-    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
-      d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
   }
-
   function formatDue(iso) {
     var d = new Date(iso);
-    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
-      d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2);
   }
-
-  // 期限の状態: 'over'(期限切れ) / 'today'(今日中) / 'ok'
   function dueStatus(iso) {
-    var due = new Date(iso);
-    var now = new Date();
+    var due = new Date(iso), now = new Date();
     if (due.getTime() < now.getTime()) return 'over';
     var endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     if (due.getTime() <= endOfToday.getTime()) return 'today';
     return 'ok';
   }
 
-  // ---- フィルタ ----
+  // ============ 付箋ボード ============
   function matchesFilter(n) {
     if (state.filter !== 'all' && n.assignee !== 'all' && n.assignee !== state.filter) return false;
     if (!state.showHidden && n.visible === false) return false;
     if (state.search && n.text.toLowerCase().indexOf(state.search.toLowerCase()) === -1) return false;
     return true;
   }
-
-  // 並び順: ピン留め → 種類(緊急が先) → 期限が近い順 → 更新が新しい順
   function sortNotes(a, b) {
-    var pa = a.pinned ? 0 : 1;
-    var pb = b.pinned ? 0 : 1;
+    var pa = a.pinned ? 0 : 1, pb = b.pinned ? 0 : 1;
     if (pa !== pb) return pa - pb;
     var ca = CATEGORY_ORDER[a.category] !== undefined ? CATEGORY_ORDER[a.category] : 9;
     var cb = CATEGORY_ORDER[b.category] !== undefined ? CATEGORY_ORDER[b.category] : 9;
@@ -601,43 +774,34 @@
     return new Date(b.updatedAt) - new Date(a.updatedAt);
   }
 
-  // ---- カード生成 ----
   function buildCard(n) {
     var card = document.createElement('div');
     card.className = 'note cat-' + n.category +
-      (n.visible === false ? ' is-hidden' : '') +
-      (n.done ? ' is-done' : '') +
-      (n.pinned ? ' is-pinned' : '');
+      (n.visible === false ? ' is-hidden' : '') + (n.done ? ' is-done' : '') + (n.pinned ? ' is-pinned' : '');
 
     var head = document.createElement('div');
     head.className = 'note-head';
-
     var catBadge = document.createElement('span');
     catBadge.className = 'badge cat-' + n.category;
     catBadge.textContent = CATEGORY_LABELS[n.category] || n.category;
     head.appendChild(catBadge);
-
     var asBadge = document.createElement('span');
     asBadge.className = 'badge assignee';
     asBadge.textContent = '宛先: ' + (ASSIGNEE_LABELS[n.assignee] || n.assignee);
     head.appendChild(asBadge);
-
     if (n.dueAt) {
       var st = dueStatus(n.dueAt);
       var dueBadge = document.createElement('span');
       dueBadge.className = 'badge due-' + st;
-      dueBadge.textContent =
-        (st === 'over' ? '⏰ 期限切れ ' : st === 'today' ? '⏰ 本日 ' : '📅 期限 ') + formatDue(n.dueAt);
+      dueBadge.textContent = (st === 'over' ? '⏰ 期限切れ ' : st === 'today' ? '⏰ 本日 ' : '📅 期限 ') + formatDue(n.dueAt);
       head.appendChild(dueBadge);
     }
-
     if (n.popup) {
       var popBadge = document.createElement('span');
       popBadge.className = 'badge popup-mark';
       popBadge.textContent = '🔔 ' + (n.popupTarget === 'all' ? '全端末' : n.popupTarget);
       head.appendChild(popBadge);
     }
-
     if (n.visible === false) {
       var hidBadge = document.createElement('span');
       hidBadge.className = 'badge hidden-mark';
@@ -651,7 +815,6 @@
     text.textContent = n.text;
     card.appendChild(text);
 
-    // ポップアップ通知の確認履歴（今回の通知分のみ表示）
     if (n.popup && n.popupAt) {
       var acks = (n.acks || []).filter(function (a) { return a.popupAt === n.popupAt; });
       var ackLine = document.createElement('div');
@@ -660,9 +823,6 @@
         ackLine.textContent = '✔ 確認済み: ' + acks.map(function (a) {
           return a.device + (a.name ? '(' + a.name + ')' : '');
         }).join('・');
-        ackLine.title = acks.map(function (a) {
-          return a.device + (a.name ? '(' + a.name + ')' : '') + ' — ' + timeAgo(a.at);
-        }).join('\n');
       } else {
         ackLine.className = 'note-acks none';
         ackLine.textContent = '✔ 確認: まだありません';
@@ -672,57 +832,55 @@
 
     var foot = document.createElement('div');
     foot.className = 'note-foot';
-
     var meta = document.createElement('span');
     meta.className = 'note-meta';
     meta.textContent = (n.author ? n.author + ' ・ ' : '') + timeAgo(n.updatedAt);
     foot.appendChild(meta);
-
     var actions = document.createElement('div');
     actions.className = 'note-actions';
-
     function iconBtn(label, title, handler, extraClass) {
       var b = document.createElement('button');
       b.className = 'icon-btn' + (extraClass ? ' ' + extraClass : '');
-      b.textContent = label;
-      b.title = title;
+      b.textContent = label; b.title = title;
       b.addEventListener('click', handler);
       actions.appendChild(b);
     }
-
     if (!n.done) {
       iconBtn('✅', '完了にする', function () { updateNote(n.id, { done: true }); });
-      iconBtn('📌', n.pinned ? 'ピン留めを外す' : 'ピン留め（一番上に固定）', function () {
-        updateNote(n.id, { pinned: !n.pinned });
-      }, n.pinned ? 'active-pin' : '');
-      iconBtn(n.visible === false ? '🙈' : '👁', n.visible === false ? '表示に戻す' : '非表示にする', function () {
-        updateNote(n.id, { visible: n.visible === false });
-      });
+      iconBtn('📌', n.pinned ? 'ピン留めを外す' : 'ピン留め（一番上に固定）', function () { updateNote(n.id, { pinned: !n.pinned }); }, n.pinned ? 'active-pin' : '');
+      iconBtn(n.visible === false ? '🙈' : '👁', n.visible === false ? '表示に戻す' : '非表示にする', function () { updateNote(n.id, { visible: n.visible === false }); });
       iconBtn('✏️', '編集', function () { openModal(n); });
     } else {
       iconBtn('↩️', 'ボードに戻す', function () { updateNote(n.id, { done: false }); });
     }
     iconBtn('🗑️', '削除', function () {
-      if (confirm('この付箋を削除しますか？\n\n「' + n.text.slice(0, 40) + (n.text.length > 40 ? '…' : '') + '」')) {
-        deleteNote(n.id);
-      }
+      if (confirm('この付箋を削除しますか？\n\n「' + n.text.slice(0, 40) + (n.text.length > 40 ? '…' : '') + '」')) deleteNote(n.id);
     });
-
     foot.appendChild(actions);
     card.appendChild(foot);
     return card;
   }
 
-  // ---- 描画 ----
   function renderDoneToggleLabel() {
     var count = state.notes.filter(function (n) { return n.done; }).length;
     $('doneToggle').textContent = (state.showDone ? '▾' : '▸') + ' 完了した付箋 (' + count + ')';
   }
 
-  function render() {
+  function renderHeaderBadges() {
+    var urgentCount = state.notes.filter(function (n) { return !n.done && n.category === 'urgent' && n.visible !== false; }).length;
+    var badge = $('urgentBadge');
+    if (urgentCount > 0) { badge.style.display = 'inline-block'; badge.textContent = '🚨 緊急 ' + urgentCount + '件'; }
+    else badge.style.display = 'none';
+    var overdueCount = state.notes.filter(function (n) { return !n.done && n.visible !== false && n.dueAt && dueStatus(n.dueAt) === 'over'; }).length;
+    var dBadge = $('dueBadge');
+    if (overdueCount > 0) { dBadge.style.display = 'inline-block'; dBadge.textContent = '⏰ 期限切れ ' + overdueCount + '件'; }
+    else dBadge.style.display = 'none';
+    document.title = (urgentCount > 0 ? '🚨(' + urgentCount + ') ' : '') + 'クリニック共有ボード';
+  }
+
+  function renderNotes() {
     var active = state.notes.filter(function (n) { return !n.done && matchesFilter(n); }).sort(sortNotes);
     var done = state.notes.filter(function (n) { return n.done && matchesFilter(n); }).sort(sortNotes);
-
     board.innerHTML = '';
     if (active.length === 0) {
       var msg = document.createElement('div');
@@ -732,201 +890,316 @@
     } else {
       active.forEach(function (n) { board.appendChild(buildCard(n)); });
     }
-
     doneBoard.innerHTML = '';
     done.forEach(function (n) { doneBoard.appendChild(buildCard(n)); });
     renderDoneToggleLabel();
-
-    var urgentCount = state.notes.filter(function (n) {
-      return !n.done && n.category === 'urgent' && n.visible !== false;
-    }).length;
-    var badge = $('urgentBadge');
-    if (urgentCount > 0) {
-      badge.style.display = 'inline-block';
-      badge.textContent = '🚨 緊急 ' + urgentCount + '件';
-    } else {
-      badge.style.display = 'none';
-    }
-
-    var overdueCount = state.notes.filter(function (n) {
-      return !n.done && n.visible !== false && n.dueAt && dueStatus(n.dueAt) === 'over';
-    }).length;
-    var dBadge = $('dueBadge');
-    if (overdueCount > 0) {
-      dBadge.style.display = 'inline-block';
-      dBadge.textContent = '⏰ 期限切れ ' + overdueCount + '件';
-    } else {
-      dBadge.style.display = 'none';
-    }
-
-    document.title = (urgentCount > 0 ? '🚨(' + urgentCount + ') ' : '') + 'クリニック共有付箋ボード';
+    renderHeaderBadges();
   }
+
+  // ---- クイックテンプレート ----
+  function renderTemplates() {
+    var bar = $('templatesBar');
+    bar.innerHTML = '';
+    var label = document.createElement('span');
+    label.className = 'tpl-label';
+    label.textContent = '⚡ よく使う付箋:';
+    bar.appendChild(label);
+    state.templates.forEach(function (t) {
+      var chip = document.createElement('button');
+      chip.className = 'tpl-chip';
+      var dot = document.createElement('span');
+      dot.className = 'cat-dot';
+      dot.style.background = CATEGORY_COLORS[t.category] || '#999';
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode(t.label));
+      chip.addEventListener('click', function () { addFromTemplate(t); });
+      bar.appendChild(chip);
+    });
+    var manage = document.createElement('button');
+    manage.className = 'tpl-manage';
+    manage.textContent = '⚙ 編集';
+    manage.addEventListener('click', openTplModal);
+    bar.appendChild(manage);
+  }
+
+  function addFromTemplate(t) {
+    fetch('/api/notes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: t.text, category: t.category, assignee: t.assignee, author: $('myName').value.trim() }),
+    }).then(function (r) { return r.json(); }).then(function () {
+      toast('「' + t.label + '」を追加しました');
+      fetchState();
+    }).catch(function () { toast('追加に失敗しました'); });
+  }
+
+  // ============ 患者フローボード ============
+  function renderPatients() {
+    flowBoard.innerHTML = '';
+    PATIENT_STATUSES.forEach(function (status) {
+      var col = document.createElement('div');
+      col.className = 'flow-col s-' + status;
+      var inThis = state.patients.filter(function (p) { return p.status === status; })
+        .sort(function (a, b) { return new Date(a.statusChangedAt || a.createdAt) - new Date(b.statusChangedAt || b.createdAt); });
+
+      var head = document.createElement('div');
+      head.className = 'flow-col-head';
+      var htxt = document.createElement('span');
+      htxt.textContent = STATUS_LABELS[status];
+      head.appendChild(htxt);
+      var cnt = document.createElement('span');
+      cnt.className = 'cnt';
+      cnt.textContent = inThis.length;
+      head.appendChild(cnt);
+      col.appendChild(head);
+
+      var body = document.createElement('div');
+      body.className = 'flow-col-body';
+      if (inThis.length === 0) {
+        var e = document.createElement('div');
+        e.className = 'flow-empty';
+        e.textContent = '—';
+        body.appendChild(e);
+      } else {
+        inThis.forEach(function (p) { body.appendChild(buildPatientCard(p)); });
+      }
+      col.appendChild(body);
+      flowBoard.appendChild(col);
+    });
+  }
+
+  function buildPatientCard(p) {
+    var card = document.createElement('div');
+    card.className = 'pat-card';
+
+    var top = document.createElement('div');
+    top.className = 'pat-top';
+    var num = document.createElement('span');
+    num.className = 'pat-number';
+    num.appendChild(document.createTextNode(p.number));
+    var ban = document.createElement('span');
+    ban.className = 'ban';
+    ban.textContent = '番';
+    num.appendChild(ban);
+    top.appendChild(num);
+    card.appendChild(top);
+
+    if (p.memo) {
+      var memo = document.createElement('div');
+      memo.className = 'pat-memo';
+      memo.textContent = p.memo;
+      card.appendChild(memo);
+    }
+
+    var mins = minutesSince(p.statusChangedAt || p.createdAt);
+    var el = document.createElement('div');
+    el.className = 'pat-elapsed' + (p.status !== 'done' && mins >= 40 ? ' over' : p.status !== 'done' && mins >= 20 ? ' warn' : '');
+    el.textContent = 'この状態 ' + (mins < 1 ? '1分未満' : mins + '分') + (p.status !== 'done' && mins >= 20 ? '（お待たせ中）' : '');
+    card.appendChild(el);
+
+    var actions = document.createElement('div');
+    actions.className = 'pat-actions';
+    var idx = PATIENT_STATUSES.indexOf(p.status);
+
+    if (idx > 0) {
+      var backBtn = document.createElement('button');
+      backBtn.className = 'pat-back';
+      backBtn.textContent = '◀';
+      backBtn.title = '一つ戻す';
+      backBtn.addEventListener('click', function () { updatePatient(p.id, { status: PATIENT_STATUSES[idx - 1] }); });
+      actions.appendChild(backBtn);
+    }
+    if (idx < PATIENT_STATUSES.length - 1) {
+      var nextBtn = document.createElement('button');
+      nextBtn.className = 'pat-next';
+      nextBtn.textContent = NEXT_LABELS[p.status];
+      nextBtn.addEventListener('click', function () { updatePatient(p.id, { status: PATIENT_STATUSES[idx + 1] }); });
+      actions.appendChild(nextBtn);
+    }
+    var delBtn = document.createElement('button');
+    delBtn.className = 'pat-del';
+    delBtn.textContent = '✕';
+    delBtn.title = '削除';
+    delBtn.addEventListener('click', function () {
+      if (confirm(p.number + '番' + (p.memo ? '（' + p.memo + '）' : '') + ' を削除しますか？')) deletePatient(p.id);
+    });
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+    return card;
+  }
+
+  function addPatient() {
+    var number = $('patNumber').value.trim();
+    var memo = $('patMemo').value.trim();
+    if (!number) { $('patNumber').focus(); return; }
+    fetch('/api/patients', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number: number, memo: memo }),
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || '追加に失敗しました'); });
+      return r.json();
+    }).then(function () {
+      $('patNumber').value = ''; $('patMemo').value = '';
+      $('patNumber').focus();
+      toast(number + '番を受付に追加しました');
+      fetchState();
+    }).catch(function (e) { toast(e.message); });
+  }
+  $('patAddBtn').addEventListener('click', addPatient);
+  $('patNumber').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('patMemo').focus(); } });
+  $('patMemo').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addPatient(); } });
+
+  $('patClearDone').addEventListener('click', function () {
+    if (!confirm('「完了」の患者さんをボードから消します。よろしいですか？')) return;
+    fetch('/api/patients/clear-done', { method: 'POST' }).then(fetchState).then(function () { toast('完了の方を消しました'); });
+  });
+  $('patClearAll').addEventListener('click', function () {
+    if (!confirm('患者ボードの全員を消します。1日の終わりのリセットなどにお使いください。よろしいですか？')) return;
+    fetch('/api/patients/clear-all', { method: 'POST' }).then(fetchState).then(function () { toast('患者ボードをリセットしました'); });
+  });
+
+  function updatePatient(id, changes) {
+    var p = state.patients.find(function (x) { return x.id === id; });
+    if (!p) return;
+    fetch('/api/patients/' + id, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({}, p, changes)),
+    }).then(fetchState);
+  }
+  function deletePatient(id) { fetch('/api/patients/' + id, { method: 'DELETE' }).then(fetchState); }
 
   // ---- 通知音 ----
   function playChime() {
+    if (!state.soundOn) return;
     try {
       var Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       var ctx = new Ctx();
       var t = ctx.currentTime;
       [880, 660, 880].forEach(function (freq, i) {
-        var o = ctx.createOscillator();
-        var g = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.value = freq;
-        o.connect(g);
-        g.connect(ctx.destination);
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        o.connect(g); g.connect(ctx.destination);
         var start = t + i * 0.22;
         g.gain.setValueAtTime(0.0001, start);
         g.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
-        o.start(start);
-        o.stop(start + 0.22);
+        o.start(start); o.stop(start + 0.22);
       });
-    } catch (e) { /* 音が出せない環境では無視 */ }
+    } catch (e) { /* 無視 */ }
   }
 
   // ---- ポップアップ通知 ----
   var popupOverlay = $('popupOverlay');
-
   function pendingPopups() {
     var dev = $('deviceName').value.trim();
     return state.notes.filter(function (n) {
       return n.popup && n.popupAt && !n.done &&
-        (n.popupTarget === 'all' || n.popupTarget === dev) &&
-        acked[n.id] !== n.popupAt;
+        (n.popupTarget === 'all' || n.popupTarget === dev) && acked[n.id] !== n.popupAt;
     }).sort(sortNotes);
   }
-
   function checkPopups() {
     var ids = {};
     state.notes.forEach(function (n) { ids[n.id] = true; });
     var dirty = false;
-    Object.keys(acked).forEach(function (k) {
-      if (!ids[k]) { delete acked[k]; dirty = true; }
-    });
+    Object.keys(acked).forEach(function (k) { if (!ids[k]) { delete acked[k]; dirty = true; } });
     if (dirty) saveAcked();
 
     var pending = pendingPopups();
-    if (pending.length === 0) {
-      state.currentPopup = null;
-      popupOverlay.classList.remove('open');
-      return;
-    }
+    if (pending.length === 0) { state.currentPopup = null; popupOverlay.classList.remove('open'); return; }
     var top = pending[0];
-    var isNew = !state.currentPopup ||
-      state.currentPopup.id !== top.id || state.currentPopup.popupAt !== top.popupAt;
+    var isNew = !state.currentPopup || state.currentPopup.id !== top.id || state.currentPopup.popupAt !== top.popupAt;
     if (isNew) {
       state.currentPopup = top;
       var head = $('popupHead');
       head.className = 'popup-head cat-' + top.category;
       head.textContent = '🔔 ' + (CATEGORY_LABELS[top.category] || '') + ' のお知らせ';
       $('popupText').textContent = top.text;
-      $('popupMeta').textContent =
-        (top.author ? top.author + ' ・ ' : '') + timeAgo(top.popupAt) +
-        ' ・ 宛先: ' + (ASSIGNEE_LABELS[top.assignee] || top.assignee) +
-        (top.dueAt ? ' ・ 期限: ' + formatDue(top.dueAt) : '');
+      $('popupMeta').textContent = (top.author ? top.author + ' ・ ' : '') + timeAgo(top.popupAt) +
+        ' ・ 宛先: ' + (ASSIGNEE_LABELS[top.assignee] || top.assignee) + (top.dueAt ? ' ・ 期限: ' + formatDue(top.dueAt) : '');
       $('popupCount').textContent = pending.length > 1 ? '未確認の通知が あと' + (pending.length - 1) + '件あります' : '';
       popupOverlay.classList.add('open');
       playChime();
     }
   }
-
   $('popupAckBtn').addEventListener('click', function () {
     var cur = state.currentPopup;
     if (cur) {
-      acked[cur.id] = cur.popupAt;
-      saveAcked();
-      state.currentPopup = null;
-      // サーバーに確認履歴を記録（誰が・どの端末で確認したか）
+      acked[cur.id] = cur.popupAt; saveAcked(); state.currentPopup = null;
       fetch('/api/notes/' + cur.id + '/ack', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          device: $('deviceName').value.trim(),
-          name: $('myName').value.trim(),
-        }),
-      }).then(fetchNotes).catch(function () {});
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: $('deviceName').value.trim(), name: $('myName').value.trim() }),
+      }).then(fetchState).catch(function () {});
     }
     checkPopups();
   });
 
-  // ---- API ----
-  function fetchNotes() {
+  // ---- API ポーリング ----
+  function fetchState() {
     var dev = $('deviceName').value.trim();
-    return fetch('/api/notes' + (dev ? '?device=' + encodeURIComponent(dev) : ''))
+    return fetch('/api/state' + (dev ? '?device=' + encodeURIComponent(dev) : ''))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         state.devices = data.devices || [];
-        var json = JSON.stringify(data.notes);
-        if (json !== state.lastJson) {
-          state.lastJson = json;
-          state.notes = data.notes;
-          render();
+        var notesSig = JSON.stringify(data.notes);
+        var patSig = JSON.stringify(data.patients);
+        var tplSig = JSON.stringify(data.templates);
+        if (notesSig !== state.lastNotesSig) {
+          state.lastNotesSig = notesSig; state.notes = data.notes;
+          renderHeaderBadges();
+          if (state.view === 'notes') renderNotes();
+        }
+        if (patSig !== state.lastPatientsSig) {
+          state.lastPatientsSig = patSig; state.patients = data.patients || [];
+          if (state.view === 'patients') renderPatients();
+        }
+        if (tplSig !== state.lastTemplatesSig) {
+          state.lastTemplatesSig = tplSig; state.templates = data.templates || [];
+          renderTemplates();
+          if ($('tplModalOverlay').classList.contains('open')) renderTplList();
         }
         checkPopups();
       })
-      .catch(function () { /* 一時的な通信エラーは無視して次のポーリングを待つ */ });
+      .catch(function () { /* 一時的な通信エラーは無視 */ });
   }
 
   function updateNote(id, changes) {
     var n = state.notes.find(function (x) { return x.id === id; });
     if (!n) return;
-    var payload = Object.assign({}, n, changes);
     fetch('/api/notes/' + id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).then(fetchNotes);
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({}, n, changes)),
+    }).then(fetchState);
   }
-
-  function deleteNote(id) {
-    fetch('/api/notes/' + id, { method: 'DELETE' }).then(fetchNotes);
-  }
+  function deleteNote(id) { fetch('/api/notes/' + id, { method: 'DELETE' }).then(fetchState); }
 
   // ---- 期限入力 ----
   function toLocalInputValue(d) {
     return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) +
       'T' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
   }
-  $('dueToday').addEventListener('click', function () {
-    var d = new Date();
-    d.setHours(18, 0, 0, 0);
-    $('noteDue').value = toLocalInputValue(d);
-  });
-  $('dueTomorrow').addEventListener('click', function () {
-    var d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(9, 0, 0, 0);
-    $('noteDue').value = toLocalInputValue(d);
-  });
-  $('dueClear').addEventListener('click', function () {
-    $('noteDue').value = '';
-  });
+  $('dueToday').addEventListener('click', function () { var d = new Date(); d.setHours(18, 0, 0, 0); $('noteDue').value = toLocalInputValue(d); });
+  $('dueTomorrow').addEventListener('click', function () { var d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); $('noteDue').value = toLocalInputValue(d); });
+  $('dueClear').addEventListener('click', function () { $('noteDue').value = ''; });
 
-  // ---- モーダル ----
+  // ---- 付箋モーダル ----
   var overlay = $('modalOverlay');
-
   function fillPopupTargets(selected) {
     var sel = $('popupTarget');
     sel.innerHTML = '';
     var optAll = document.createElement('option');
-    optAll.value = 'all';
-    optAll.textContent = 'すべての端末';
+    optAll.value = 'all'; optAll.textContent = 'すべての端末';
     sel.appendChild(optAll);
     var names = state.devices.map(function (d) { return d.name; });
     if (selected && selected !== 'all' && names.indexOf(selected) === -1) names.push(selected);
     names.forEach(function (name) {
       var d = state.devices.find(function (x) { return x.name === name; });
       var opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name + (d && d.online ? '（接続中）' : '');
+      opt.value = name; opt.textContent = name + (d && d.online ? '（接続中）' : '');
       sel.appendChild(opt);
     });
     sel.value = selected || 'all';
     if (sel.value !== (selected || 'all')) sel.value = 'all';
   }
-
   function openModal(note) {
     state.editingId = note ? note.id : null;
     $('modalTitle').textContent = note ? '付箋を編集' : '付箋を追加';
@@ -938,26 +1211,20 @@
     $('noteDue').value = note && note.dueAt ? toLocalInputValue(new Date(note.dueAt)) : '';
     fillPopupTargets(note ? note.popupTarget : 'all');
     var cat = note ? note.category : 'normal';
-    var radios = document.querySelectorAll('input[name="cat"]');
-    Array.prototype.forEach.call(radios, function (r) { r.checked = (r.value === cat); });
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="cat"]'), function (r) { r.checked = (r.value === cat); });
     overlay.classList.add('open');
     $('noteText').focus();
   }
-
-  function closeModal() {
-    overlay.classList.remove('open');
-    state.editingId = null;
-  }
-
-  $('notePopup').addEventListener('change', function () {
-    $('popupTargetRow').style.display = this.checked ? 'block' : 'none';
-  });
-
+  function closeModal() { overlay.classList.remove('open'); state.editingId = null; }
+  $('notePopup').addEventListener('change', function () { $('popupTargetRow').style.display = this.checked ? 'block' : 'none'; });
   $('addBtn').addEventListener('click', function () { openModal(null); });
   $('cancelBtn').addEventListener('click', closeModal);
   overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+    if (e.key === 'Escape') {
+      if (overlay.classList.contains('open')) closeModal();
+      if ($('tplModalOverlay').classList.contains('open')) closeTplModal();
+    }
   });
 
   $('saveBtn').addEventListener('click', function () {
@@ -966,57 +1233,90 @@
     var catEl = document.querySelector('input[name="cat"]:checked');
     var dueVal = $('noteDue').value;
     var payload = {
-      text: text,
-      category: catEl ? catEl.value : 'normal',
-      assignee: $('noteAssignee').value,
-      visible: $('noteVisible').checked,
-      popup: $('notePopup').checked,
+      text: text, category: catEl ? catEl.value : 'normal', assignee: $('noteAssignee').value,
+      visible: $('noteVisible').checked, popup: $('notePopup').checked,
       popupTarget: $('popupTarget').value || 'all',
-      dueAt: dueVal ? new Date(dueVal).toISOString() : null,
-      author: $('myName').value.trim(),
+      dueAt: dueVal ? new Date(dueVal).toISOString() : null, author: $('myName').value.trim(),
     };
-
     var selfAck = payload.popup;
-
     var req;
     if (state.editingId) {
       var original = state.notes.find(function (x) { return x.id === state.editingId; });
       req = fetch('/api/notes/' + state.editingId, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.assign({}, original, payload)),
       });
     } else {
       req = fetch('/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
     }
     req.then(function (r) {
       if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || '保存に失敗しました'); });
       return r.json();
     }).then(function (d) {
-      if (d && d.note && selfAck && d.note.popupAt) {
-        acked[d.note.id] = d.note.popupAt;
-        saveAcked();
-      }
-      closeModal();
-      return fetchNotes();
+      if (d && d.note && selfAck && d.note.popupAt) { acked[d.note.id] = d.note.popupAt; saveAcked(); }
+      closeModal(); return fetchState();
     }).catch(function (e) { alert(e.message); });
   });
 
-  // ---- 自動同期(5秒ごと / モーダル編集中は停止) ----
-  setInterval(function () {
-    if (!overlay.classList.contains('open')) fetchNotes();
-  }, 5000);
+  // ---- テンプレート管理モーダル ----
+  var tplOverlay = $('tplModalOverlay');
+  function renderTplList() {
+    var list = $('tplList');
+    list.innerHTML = '';
+    if (state.templates.length === 0) {
+      var e = document.createElement('div');
+      e.className = 'flow-empty';
+      e.textContent = 'テンプレートはありません';
+      list.appendChild(e);
+    }
+    state.templates.forEach(function (t) {
+      var item = document.createElement('div');
+      item.className = 'tpl-item';
+      var lb = document.createElement('span');
+      lb.className = 'tpl-item-label';
+      lb.textContent = t.label;
+      var tx = document.createElement('span');
+      tx.className = 'tpl-item-text';
+      tx.textContent = t.text + '（' + (CATEGORY_LABELS[t.category] || t.category) + '/' + (ASSIGNEE_LABELS[t.assignee] || t.assignee) + '）';
+      var del = document.createElement('button');
+      del.textContent = '🗑';
+      del.title = '削除';
+      del.addEventListener('click', function () {
+        fetch('/api/templates/' + t.id, { method: 'DELETE' }).then(fetchState);
+      });
+      item.appendChild(lb); item.appendChild(tx); item.appendChild(del);
+      list.appendChild(item);
+    });
+  }
+  function openTplModal() { renderTplList(); tplOverlay.classList.add('open'); }
+  function closeTplModal() { tplOverlay.classList.remove('open'); }
+  $('tplCloseBtn').addEventListener('click', closeTplModal);
+  tplOverlay.addEventListener('click', function (e) { if (e.target === tplOverlay) closeTplModal(); });
+  $('tplAddBtn').addEventListener('click', function () {
+    var label = $('tplLabel').value.trim(), text = $('tplText').value.trim();
+    if (!label || !text) { alert('ボタン名と内容を入力してください。'); return; }
+    fetch('/api/templates', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: label, text: text, category: $('tplCategory').value, assignee: $('tplAssignee').value }),
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || '追加に失敗'); });
+      return r.json();
+    }).then(function () { $('tplLabel').value = ''; $('tplText').value = ''; toast('テンプレートを追加しました'); return fetchState(); })
+      .catch(function (e) { alert(e.message); });
+  });
 
-  // 期限切れ表示は時間経過でも変わるため、1分ごとに再描画
+  // ---- 自動同期 ----
+  function anyModalOpen() { return overlay.classList.contains('open') || tplOverlay.classList.contains('open'); }
+  setInterval(function () { if (!anyModalOpen()) fetchState(); }, 5000);
+  // 経過時間・期限表示の更新（1分ごと）
   setInterval(function () {
-    if (!overlay.classList.contains('open')) render();
+    if (anyModalOpen()) return;
+    if (state.view === 'notes') { renderNotes(); } else { renderPatients(); }
   }, 60000);
 
-  fetchNotes();
+  fetchState();
 })();
 </script>
 </body>

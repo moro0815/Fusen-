@@ -17,15 +17,24 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'notes.json');
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
+const PATIENTS_FILE = path.join(DATA_DIR, 'patients.json');
+const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const CATEGORIES = ['normal', 'info', 'caution', 'urgent'];
 const ASSIGNEES = ['all', 'reception', 'nurse', 'doctor', 'office'];
 
+// 患者フローボードの状態（動線の各段階）
+const PATIENT_STATUSES = ['reception', 'waiting', 'consulting', 'treatment', 'checkout', 'done'];
+
 // 完了にした付箋を自動削除するまでの日数
 const DONE_RETENTION_DAYS = 7;
+// 「完了」にした患者をボードから自動的に消すまでの時間
+const PATIENT_DONE_RETENTION_HOURS = 3;
 
 let notes = [];
+let patients = [];
+let templates = [];
 
 // 端末レジストリ: 端末名 -> 最終アクセス時刻(ms)。
 // ポーリング時に ?device=端末名 を付けてもらうことで自動登録される。
@@ -106,6 +115,65 @@ function cleanupDoneNotes() {
   if (notes.length !== before) saveNotes();
 }
 
+// ---- 患者フローボード ----
+function loadPatients() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(PATIENTS_FILE, 'utf8'));
+    if (Array.isArray(parsed)) patients = parsed;
+  } catch (e) { patients = []; }
+}
+
+function savePatients() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = PATIENTS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(patients, null, 2), 'utf8');
+  fs.renameSync(tmp, PATIENTS_FILE);
+}
+
+function sanitizePatientInput(body, base) {
+  const p = Object.assign({}, base);
+  if ('number' in body) p.number = sanitizeText(String(body.number == null ? '' : body.number), 12).trim();
+  if ('memo' in body) p.memo = sanitizeText(body.memo, 60);
+  if ('status' in body && PATIENT_STATUSES.includes(body.status)) p.status = body.status;
+  return p;
+}
+
+// 完了にした患者を一定時間後にボードから自動で消す（1日の自然な入れ替わり）
+function cleanupDonePatients() {
+  const cutoff = Date.now() - PATIENT_DONE_RETENTION_HOURS * 60 * 60 * 1000;
+  const before = patients.length;
+  patients = patients.filter((p) => !(p.status === 'done' && new Date(p.statusChangedAt || p.updatedAt).getTime() < cutoff));
+  if (patients.length !== before) savePatients();
+}
+
+// ---- クイックテンプレート ----
+const DEFAULT_TEMPLATES = [
+  { label: '採血お願いします', text: '採血お願いします', category: 'caution', assignee: 'nurse' },
+  { label: 'Dr呼び出し', text: '至急、診察室へお願いします（Dr呼び出し）', category: 'urgent', assignee: 'doctor' },
+  { label: '処置室へご案内', text: '処置室へご案内をお願いします', category: 'info', assignee: 'nurse' },
+  { label: '会計へご案内', text: '会計の準備ができました。ご案内をお願いします', category: 'info', assignee: 'reception' },
+  { label: '次の方どうぞ', text: '次の患者様をお呼びください', category: 'info', assignee: 'reception' },
+];
+
+function loadTemplates() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(TEMPLATES_FILE, 'utf8'));
+    if (Array.isArray(parsed)) { templates = parsed; return; }
+  } catch (e) { /* ファイルなし → 既定テンプレートで初期化 */ }
+  templates = DEFAULT_TEMPLATES.map((t) => ({
+    id: crypto.randomBytes(6).toString('hex'),
+    label: t.label, text: t.text, category: t.category, assignee: t.assignee,
+  }));
+  saveTemplates();
+}
+
+function saveTemplates() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = TEMPLATES_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(templates, null, 2), 'utf8');
+  fs.renameSync(tmp, TEMPLATES_FILE);
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -157,14 +225,88 @@ const server = http.createServer(async (req, res) => {
 
   try {
     // --- API ---
-    if (pathname === '/api/notes' && req.method === 'GET') {
+    // まとめて取得（付箋・端末・患者・テンプレートを1回で）。5秒ごとのポーリング用。
+    if ((pathname === '/api/state' || pathname === '/api/notes') && req.method === 'GET') {
       const dev = sanitizeText(url.searchParams.get('device') || '', 30).trim();
       if (dev) {
         const isNew = !(dev in devices);
         devices[dev] = Date.now();
         if (isNew) saveDevices();
       }
-      return sendJson(res, 200, { notes, devices: deviceList() });
+      return sendJson(res, 200, { notes, devices: deviceList(), patients, templates });
+    }
+
+    // ===== 患者フローボード =====
+    if (pathname === '/api/patients' && req.method === 'POST') {
+      const body = await readBody(req);
+      const now = new Date().toISOString();
+      const p = sanitizePatientInput(body, {
+        id: crypto.randomBytes(8).toString('hex'),
+        number: '', memo: '', status: 'reception',
+        createdAt: now, updatedAt: now, statusChangedAt: now,
+      });
+      if (!p.number) return sendJson(res, 400, { error: '受付番号を入力してください' });
+      patients.push(p);
+      savePatients();
+      return sendJson(res, 201, { patient: p });
+    }
+
+    if (pathname === '/api/patients/clear-done' && req.method === 'POST') {
+      patients = patients.filter((p) => p.status !== 'done');
+      savePatients();
+      return sendJson(res, 200, { ok: true });
+    }
+    if (pathname === '/api/patients/clear-all' && req.method === 'POST') {
+      patients = [];
+      savePatients();
+      return sendJson(res, 200, { ok: true });
+    }
+
+    const patMatch = pathname.match(/^\/api\/patients\/([0-9a-f]+)$/);
+    if (patMatch) {
+      const idx = patients.findIndex((p) => p.id === patMatch[1]);
+      if (idx === -1) return sendJson(res, 404, { error: '患者が見つかりません' });
+      if (req.method === 'PUT') {
+        const body = await readBody(req);
+        const old = patients[idx];
+        const updated = sanitizePatientInput(body, old);
+        if (!updated.number) return sendJson(res, 400, { error: '受付番号を入力してください' });
+        const now = new Date().toISOString();
+        if (updated.status !== old.status) updated.statusChangedAt = now;
+        updated.updatedAt = now;
+        patients[idx] = updated;
+        savePatients();
+        return sendJson(res, 200, { patient: updated });
+      }
+      if (req.method === 'DELETE') {
+        patients.splice(idx, 1);
+        savePatients();
+        return sendJson(res, 200, { ok: true });
+      }
+    }
+
+    // ===== クイックテンプレート =====
+    if (pathname === '/api/templates' && req.method === 'POST') {
+      const body = await readBody(req);
+      const label = sanitizeText(body.label, 30).trim();
+      const text = sanitizeText(body.text, 500).trim();
+      if (!label || !text) return sendJson(res, 400, { error: 'ラベルと内容を入力してください' });
+      const tpl = {
+        id: crypto.randomBytes(6).toString('hex'),
+        label, text,
+        category: CATEGORIES.includes(body.category) ? body.category : 'info',
+        assignee: ASSIGNEES.includes(body.assignee) ? body.assignee : 'all',
+      };
+      templates.push(tpl);
+      saveTemplates();
+      return sendJson(res, 201, { template: tpl });
+    }
+    const tplMatch = pathname.match(/^\/api\/templates\/([0-9a-f]+)$/);
+    if (tplMatch && req.method === 'DELETE') {
+      const before = templates.length;
+      templates = templates.filter((t) => t.id !== tplMatch[1]);
+      if (templates.length !== before) saveTemplates();
+      return sendJson(res, 200, { ok: true });
     }
 
     if (pathname === '/api/notes' && req.method === 'POST') {
@@ -257,12 +399,18 @@ const server = http.createServer(async (req, res) => {
 
 loadNotes();
 loadDevices();
+loadPatients();
+loadTemplates();
 cleanupDoneNotes();
-setInterval(cleanupDoneNotes, 60 * 60 * 1000); // 1時間ごとに古い完了付箋を掃除
+cleanupDonePatients();
+setInterval(function () {
+  cleanupDoneNotes();     // 古い完了付箋を掃除
+  cleanupDonePatients();  // 完了した患者をボードから掃除
+}, 10 * 60 * 1000); // 10分ごと
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('==========================================');
-  console.log('  クリニック共有付箋ボード を起動しました');
+  console.log('  クリニック共有ボード（付箋＋患者フロー）を起動しました');
   console.log('==========================================');
   console.log('');
   console.log('  このPCでは:  http://localhost:' + PORT);
