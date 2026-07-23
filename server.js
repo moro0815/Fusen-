@@ -17,23 +17,16 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'notes.json');
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
-const PATIENTS_FILE = path.join(DATA_DIR, 'patients.json');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const CATEGORIES = ['normal', 'info', 'caution', 'urgent'];
 const ASSIGNEES = ['all', 'reception', 'nurse', 'doctor', 'office'];
 
-// 患者フローボードの状態（動線の各段階）
-const PATIENT_STATUSES = ['reception', 'waiting', 'consulting', 'treatment', 'checkout', 'done'];
-
 // 完了にした付箋を自動削除するまでの日数
 const DONE_RETENTION_DAYS = 7;
-// 「完了」にした患者をボードから自動的に消すまでの時間
-const PATIENT_DONE_RETENTION_HOURS = 3;
 
 let notes = [];
-let patients = [];
 let templates = [];
 
 // 端末レジストリ: 端末名 -> 最終アクセス時刻(ms)。
@@ -113,37 +106,6 @@ function cleanupDoneNotes() {
   const before = notes.length;
   notes = notes.filter((n) => !(n.done && new Date(n.updatedAt).getTime() < cutoff));
   if (notes.length !== before) saveNotes();
-}
-
-// ---- 患者フローボード ----
-function loadPatients() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(PATIENTS_FILE, 'utf8'));
-    if (Array.isArray(parsed)) patients = parsed;
-  } catch (e) { patients = []; }
-}
-
-function savePatients() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = PATIENTS_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(patients, null, 2), 'utf8');
-  fs.renameSync(tmp, PATIENTS_FILE);
-}
-
-function sanitizePatientInput(body, base) {
-  const p = Object.assign({}, base);
-  if ('number' in body) p.number = sanitizeText(String(body.number == null ? '' : body.number), 12).trim();
-  if ('memo' in body) p.memo = sanitizeText(body.memo, 60);
-  if ('status' in body && PATIENT_STATUSES.includes(body.status)) p.status = body.status;
-  return p;
-}
-
-// 完了にした患者を一定時間後にボードから自動で消す（1日の自然な入れ替わり）
-function cleanupDonePatients() {
-  const cutoff = Date.now() - PATIENT_DONE_RETENTION_HOURS * 60 * 60 * 1000;
-  const before = patients.length;
-  patients = patients.filter((p) => !(p.status === 'done' && new Date(p.statusChangedAt || p.updatedAt).getTime() < cutoff));
-  if (patients.length !== before) savePatients();
 }
 
 // ---- クイックテンプレート ----
@@ -233,56 +195,7 @@ const server = http.createServer(async (req, res) => {
         devices[dev] = Date.now();
         if (isNew) saveDevices();
       }
-      return sendJson(res, 200, { notes, devices: deviceList(), patients, templates });
-    }
-
-    // ===== 患者フローボード =====
-    if (pathname === '/api/patients' && req.method === 'POST') {
-      const body = await readBody(req);
-      const now = new Date().toISOString();
-      const p = sanitizePatientInput(body, {
-        id: crypto.randomBytes(8).toString('hex'),
-        number: '', memo: '', status: 'reception',
-        createdAt: now, updatedAt: now, statusChangedAt: now,
-      });
-      if (!p.number) return sendJson(res, 400, { error: '受付番号を入力してください' });
-      patients.push(p);
-      savePatients();
-      return sendJson(res, 201, { patient: p });
-    }
-
-    if (pathname === '/api/patients/clear-done' && req.method === 'POST') {
-      patients = patients.filter((p) => p.status !== 'done');
-      savePatients();
-      return sendJson(res, 200, { ok: true });
-    }
-    if (pathname === '/api/patients/clear-all' && req.method === 'POST') {
-      patients = [];
-      savePatients();
-      return sendJson(res, 200, { ok: true });
-    }
-
-    const patMatch = pathname.match(/^\/api\/patients\/([0-9a-f]+)$/);
-    if (patMatch) {
-      const idx = patients.findIndex((p) => p.id === patMatch[1]);
-      if (idx === -1) return sendJson(res, 404, { error: '患者が見つかりません' });
-      if (req.method === 'PUT') {
-        const body = await readBody(req);
-        const old = patients[idx];
-        const updated = sanitizePatientInput(body, old);
-        if (!updated.number) return sendJson(res, 400, { error: '受付番号を入力してください' });
-        const now = new Date().toISOString();
-        if (updated.status !== old.status) updated.statusChangedAt = now;
-        updated.updatedAt = now;
-        patients[idx] = updated;
-        savePatients();
-        return sendJson(res, 200, { patient: updated });
-      }
-      if (req.method === 'DELETE') {
-        patients.splice(idx, 1);
-        savePatients();
-        return sendJson(res, 200, { ok: true });
-      }
+      return sendJson(res, 200, { notes, devices: deviceList(), templates });
     }
 
     // ===== クイックテンプレート =====
@@ -399,18 +312,13 @@ const server = http.createServer(async (req, res) => {
 
 loadNotes();
 loadDevices();
-loadPatients();
 loadTemplates();
 cleanupDoneNotes();
-cleanupDonePatients();
-setInterval(function () {
-  cleanupDoneNotes();     // 古い完了付箋を掃除
-  cleanupDonePatients();  // 完了した患者をボードから掃除
-}, 10 * 60 * 1000); // 10分ごと
+setInterval(cleanupDoneNotes, 60 * 60 * 1000); // 1時間ごとに古い完了付箋を掃除
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('==========================================');
-  console.log('  クリニック共有ボード（付箋＋患者フロー）を起動しました');
+  console.log('  クリニック共有付箋ボード を起動しました');
   console.log('==========================================');
   console.log('');
   console.log('  このPCでは:  http://localhost:' + PORT);

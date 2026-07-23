@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>クリニック共有ボード</title>
+<title>クリニック共有付箋ボード</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📌</text></svg>">
 <style>
   :root {
@@ -18,13 +18,6 @@
     --c-info-bg: #d9e8ff;
     --c-normal: #b8a534;
     --c-normal-bg: #fff6b8;
-    /* 患者フローの各段階の色 */
-    --s-reception: #607d8b;
-    --s-waiting: #1e6fd9;
-    --s-consulting: #2e9e5b;
-    --s-treatment: #6a4fb3;
-    --s-checkout: #ef8f00;
-    --s-done: #9e9e9e;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -62,15 +55,6 @@
   #dueBadge { background: var(--c-caution); }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
   .spacer { flex: 1; }
-
-  /* ビュー切替（付箋 / 患者） */
-  .view-switch { display: flex; background: rgba(255,255,255,.2); border-radius: 999px; padding: 3px; }
-  .view-switch button {
-    border: none; background: none; color: #fff; font-size: 14px; font-weight: 700;
-    padding: 7px 16px; border-radius: 999px; cursor: pointer; white-space: nowrap;
-  }
-  .view-switch button.active { background: #fff; color: var(--header-bg); }
-
   .tool-btn {
     background: rgba(255,255,255,.2); color: #fff; border: none; border-radius: 8px;
     padding: 8px 11px; font-size: 15px; cursor: pointer; line-height: 1;
@@ -246,73 +230,6 @@
   }
   .done-hint { font-size: 11px; color: #999; margin-left: 8px; font-weight: 400; }
 
-  /* ===== 患者フローボード ===== */
-  .patient-toolbar {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding: 14px 16px 0; max-width: 1500px; margin: 0 auto;
-  }
-  .patient-toolbar input {
-    border: 1px solid #d5cebf; border-radius: 8px; padding: 9px 12px; font-size: 15px; background: #fff;
-  }
-  #patNumber { width: 110px; font-weight: 700; }
-  #patMemo { width: 200px; }
-  .patient-toolbar .add-btn { padding: 10px 18px; }
-  .pat-clear {
-    background: #fff; border: 1px solid #d5cebf; color: #777;
-    border-radius: 8px; padding: 9px 12px; font-size: 12px; cursor: pointer;
-  }
-  .flow-hint { font-size: 12px; color: #999; padding: 6px 16px 0; max-width: 1500px; margin: 0 auto; }
-
-  .flow-board {
-    display: flex; gap: 12px; overflow-x: auto; align-items: flex-start;
-    padding: 12px 16px 30px; max-width: 1500px; margin: 0 auto;
-  }
-  .flow-col {
-    flex: 1 0 190px; min-width: 190px; background: #fbf8f2; border-radius: 10px;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); display: flex; flex-direction: column;
-  }
-  .flow-col-head {
-    color: #fff; font-weight: 700; font-size: 14px; padding: 10px 12px;
-    border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;
-  }
-  .flow-col-head .cnt { background: rgba(255,255,255,.3); border-radius: 999px; padding: 1px 9px; font-size: 12px; }
-  .flow-col.s-reception .flow-col-head { background: var(--s-reception); }
-  .flow-col.s-waiting .flow-col-head { background: var(--s-waiting); }
-  .flow-col.s-consulting .flow-col-head { background: var(--s-consulting); }
-  .flow-col.s-treatment .flow-col-head { background: var(--s-treatment); }
-  .flow-col.s-checkout .flow-col-head { background: var(--s-checkout); }
-  .flow-col.s-done .flow-col-head { background: var(--s-done); }
-  .flow-col-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 40px; }
-  .flow-empty { color: #bbb; font-size: 12px; text-align: center; padding: 8px 0; }
-
-  .pat-card {
-    background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
-    padding: 10px; border-left: 5px solid #ccc;
-  }
-  .flow-col.s-reception .pat-card { border-left-color: var(--s-reception); }
-  .flow-col.s-waiting .pat-card { border-left-color: var(--s-waiting); }
-  .flow-col.s-consulting .pat-card { border-left-color: var(--s-consulting); }
-  .flow-col.s-treatment .pat-card { border-left-color: var(--s-treatment); }
-  .flow-col.s-checkout .pat-card { border-left-color: var(--s-checkout); }
-  .flow-col.s-done .pat-card { border-left-color: var(--s-done); opacity: .8; }
-  .pat-top { display: flex; align-items: baseline; gap: 6px; }
-  .pat-number { font-size: 22px; font-weight: 800; color: #333; line-height: 1.1; }
-  .pat-number .ban { font-size: 13px; font-weight: 700; color: #999; margin-left: 1px; }
-  .pat-memo { font-size: 13px; color: #555; margin-top: 3px; word-break: break-word; }
-  .pat-elapsed { font-size: 11px; color: #888; margin-top: 4px; }
-  .pat-elapsed.warn { color: var(--c-caution); font-weight: 700; }
-  .pat-elapsed.over { color: var(--c-urgent); font-weight: 700; }
-  .pat-actions { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
-  .pat-next {
-    flex: 1; background: var(--header-bg); color: #fff; border: none; border-radius: 7px;
-    padding: 9px; font-size: 13px; font-weight: 700; cursor: pointer;
-  }
-  .pat-next:hover { background: #14655e; }
-  .pat-back, .pat-del {
-    background: #eee; border: none; border-radius: 7px; padding: 9px 10px; font-size: 13px; cursor: pointer; color: #666;
-  }
-  .pat-back:hover, .pat-del:hover { background: #ddd; }
-
   /* ===== モーダル ===== */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.45);
@@ -429,8 +346,7 @@
 
   /* ===== 印刷（朝礼・申し送り用） ===== */
   @media print {
-    header, .toolbar, .templates-bar, .patient-toolbar, .flow-hint,
-    .done-section, .note-actions, .no-print { display: none !important; }
+    header, .toolbar, .templates-bar, .done-section, .note-actions, .no-print { display: none !important; }
     body { background: #fff; }
     .board { display: block; padding: 0; }
     .note { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc !important;
@@ -444,14 +360,10 @@
 <body>
 
 <header>
-  <h1><span class="pin">📌</span>クリニック共有ボード</h1>
+  <h1><span class="pin">📌</span>クリニック共有付箋ボード</h1>
   <span class="head-badge" id="urgentBadge"></span>
   <span class="head-badge" id="dueBadge"></span>
   <span class="spacer"></span>
-  <div class="view-switch">
-    <button id="viewNotesBtn" class="active">📌 付箋</button>
-    <button id="viewPatientsBtn">🏥 患者フロー</button>
-  </div>
   <button class="tool-btn" id="soundBtn" title="通知音のON/OFF">🔔</button>
   <button class="tool-btn no-print" id="printBtn" title="今の付箋を印刷（朝礼・申し送り用）">🖨</button>
   <div class="name-box">
@@ -465,39 +377,22 @@
   <button class="add-btn" id="addBtn">＋ 付箋を追加</button>
 </header>
 
-<!-- ===== 付箋ビュー ===== -->
-<div id="notesView">
-  <div class="toolbar">
-    <div class="tabs" id="assigneeTabs"></div>
-    <div class="search-box"><input type="text" id="searchInput" placeholder="🔍 検索"></div>
-    <label class="toggle-hidden">
-      <input type="checkbox" id="showHidden"> 非表示の付箋も見る
-    </label>
-  </div>
-
-  <div class="templates-bar" id="templatesBar"></div>
-
-  <div class="print-title" id="printTitle"></div>
-  <main class="board" id="board"></main>
-
-  <div class="done-section">
-    <button class="done-toggle" id="doneToggle">▸ 完了した付箋 (0)</button><span class="done-hint">※完了から7日で自動的に削除されます</span>
-    <div class="board" id="doneBoard" style="display:none; padding: 8px 0 0;"></div>
-  </div>
+<div class="toolbar">
+  <div class="tabs" id="assigneeTabs"></div>
+  <div class="search-box"><input type="text" id="searchInput" placeholder="🔍 検索"></div>
+  <label class="toggle-hidden">
+    <input type="checkbox" id="showHidden"> 非表示の付箋も見る
+  </label>
 </div>
 
-<!-- ===== 患者フロービュー ===== -->
-<div id="patientsView" style="display:none;">
-  <div class="patient-toolbar">
-    <input type="text" id="patNumber" placeholder="受付番号" maxlength="12" inputmode="numeric">
-    <input type="text" id="patMemo" placeholder="メモ（任意・例: 予防接種）" maxlength="60">
-    <button class="add-btn" id="patAddBtn">＋ 受付</button>
-    <span class="spacer"></span>
-    <button class="pat-clear" id="patClearDone">完了の方を消す</button>
-    <button class="pat-clear" id="patClearAll">全員消す</button>
-  </div>
-  <div class="flow-hint">「次へ ▶」で患者さんを次の段階へ進めます。全端末にリアルタイムで反映されます。氏名など個人情報は入力しないでください（受付番号＋簡単なメモのみ）。</div>
-  <div class="flow-board" id="flowBoard"></div>
+<div class="templates-bar" id="templatesBar"></div>
+
+<div class="print-title" id="printTitle"></div>
+<main class="board" id="board"></main>
+
+<div class="done-section">
+  <button class="done-toggle" id="doneToggle">▸ 完了した付箋 (0)</button><span class="done-hint">※完了から7日で自動的に削除されます</span>
+  <div class="board" id="doneBoard" style="display:none; padding: 8px 0 0;"></div>
 </div>
 
 <!-- 追加・編集モーダル -->
@@ -628,29 +523,17 @@
   var CATEGORY_COLORS = { normal: '#b8a534', info: '#1e6fd9', caution: '#ef8f00', urgent: '#e53935' };
   var CATEGORY_ORDER = { urgent: 0, caution: 1, info: 2, normal: 3 };
 
-  var PATIENT_STATUSES = ['reception', 'waiting', 'consulting', 'treatment', 'checkout', 'done'];
-  var STATUS_LABELS = {
-    reception: '受付', waiting: '待合', consulting: '診察中',
-    treatment: '処置', checkout: '会計', done: '完了',
-  };
-  var NEXT_LABELS = {
-    reception: '待合へ ▶', waiting: '診察へ ▶', consulting: '処置へ ▶',
-    treatment: '会計へ ▶', checkout: '完了 ✓',
-  };
-
   var state = {
-    notes: [], devices: [], patients: [], templates: [],
-    view: 'notes',
+    notes: [], devices: [], templates: [],
     filter: 'all', search: '', showHidden: false, showDone: false,
     editingId: null, currentPopup: null,
     soundOn: localStorage.getItem('fusen_sound') !== 'off',
-    lastNotesSig: '', lastPatientsSig: '', lastTemplatesSig: '',
+    lastNotesSig: '', lastTemplatesSig: '',
   };
 
   var $ = function (id) { return document.getElementById(id); };
   var board = $('board');
   var doneBoard = $('doneBoard');
-  var flowBoard = $('flowBoard');
 
   // ---- トースト ----
   var toastTimer = null;
@@ -692,20 +575,6 @@
   try { acked = JSON.parse(localStorage.getItem('fusen_acked') || '{}') || {}; } catch (e) { acked = {}; }
   function saveAcked() { localStorage.setItem('fusen_acked', JSON.stringify(acked)); }
 
-  // ---- ビュー切替 ----
-  function setView(v) {
-    state.view = v;
-    $('notesView').style.display = v === 'notes' ? 'block' : 'none';
-    $('patientsView').style.display = v === 'patients' ? 'block' : 'none';
-    $('viewNotesBtn').classList.toggle('active', v === 'notes');
-    $('viewPatientsBtn').classList.toggle('active', v === 'patients');
-    $('addBtn').style.display = v === 'notes' ? 'inline-block' : 'none';
-    $('printBtn').style.display = v === 'notes' ? 'inline-block' : 'none';
-    if (v === 'notes') renderNotes(); else renderPatients();
-  }
-  $('viewNotesBtn').addEventListener('click', function () { setView('notes'); });
-  $('viewPatientsBtn').addEventListener('click', function () { setView('patients'); });
-
   // ---- 宛先タブ ----
   var tabDefs = [
     { key: 'all', label: 'すべて' }, { key: 'reception', label: '受付' },
@@ -734,7 +603,6 @@
   });
 
   // ---- 時刻 ----
-  function minutesSince(iso) { return Math.floor((Date.now() - new Date(iso).getTime()) / 60000); }
   function timeAgo(iso) {
     var diff = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diff < 60) return 'たった今';
@@ -875,7 +743,7 @@
     var dBadge = $('dueBadge');
     if (overdueCount > 0) { dBadge.style.display = 'inline-block'; dBadge.textContent = '⏰ 期限切れ ' + overdueCount + '件'; }
     else dBadge.style.display = 'none';
-    document.title = (urgentCount > 0 ? '🚨(' + urgentCount + ') ' : '') + 'クリニック共有ボード';
+    document.title = (urgentCount > 0 ? '🚨(' + urgentCount + ') ' : '') + 'クリニック共有付箋ボード';
   }
 
   function renderNotes() {
@@ -931,141 +799,6 @@
       fetchState();
     }).catch(function () { toast('追加に失敗しました'); });
   }
-
-  // ============ 患者フローボード ============
-  function renderPatients() {
-    flowBoard.innerHTML = '';
-    PATIENT_STATUSES.forEach(function (status) {
-      var col = document.createElement('div');
-      col.className = 'flow-col s-' + status;
-      var inThis = state.patients.filter(function (p) { return p.status === status; })
-        .sort(function (a, b) { return new Date(a.statusChangedAt || a.createdAt) - new Date(b.statusChangedAt || b.createdAt); });
-
-      var head = document.createElement('div');
-      head.className = 'flow-col-head';
-      var htxt = document.createElement('span');
-      htxt.textContent = STATUS_LABELS[status];
-      head.appendChild(htxt);
-      var cnt = document.createElement('span');
-      cnt.className = 'cnt';
-      cnt.textContent = inThis.length;
-      head.appendChild(cnt);
-      col.appendChild(head);
-
-      var body = document.createElement('div');
-      body.className = 'flow-col-body';
-      if (inThis.length === 0) {
-        var e = document.createElement('div');
-        e.className = 'flow-empty';
-        e.textContent = '—';
-        body.appendChild(e);
-      } else {
-        inThis.forEach(function (p) { body.appendChild(buildPatientCard(p)); });
-      }
-      col.appendChild(body);
-      flowBoard.appendChild(col);
-    });
-  }
-
-  function buildPatientCard(p) {
-    var card = document.createElement('div');
-    card.className = 'pat-card';
-
-    var top = document.createElement('div');
-    top.className = 'pat-top';
-    var num = document.createElement('span');
-    num.className = 'pat-number';
-    num.appendChild(document.createTextNode(p.number));
-    var ban = document.createElement('span');
-    ban.className = 'ban';
-    ban.textContent = '番';
-    num.appendChild(ban);
-    top.appendChild(num);
-    card.appendChild(top);
-
-    if (p.memo) {
-      var memo = document.createElement('div');
-      memo.className = 'pat-memo';
-      memo.textContent = p.memo;
-      card.appendChild(memo);
-    }
-
-    var mins = minutesSince(p.statusChangedAt || p.createdAt);
-    var el = document.createElement('div');
-    el.className = 'pat-elapsed' + (p.status !== 'done' && mins >= 40 ? ' over' : p.status !== 'done' && mins >= 20 ? ' warn' : '');
-    el.textContent = 'この状態 ' + (mins < 1 ? '1分未満' : mins + '分') + (p.status !== 'done' && mins >= 20 ? '（お待たせ中）' : '');
-    card.appendChild(el);
-
-    var actions = document.createElement('div');
-    actions.className = 'pat-actions';
-    var idx = PATIENT_STATUSES.indexOf(p.status);
-
-    if (idx > 0) {
-      var backBtn = document.createElement('button');
-      backBtn.className = 'pat-back';
-      backBtn.textContent = '◀';
-      backBtn.title = '一つ戻す';
-      backBtn.addEventListener('click', function () { updatePatient(p.id, { status: PATIENT_STATUSES[idx - 1] }); });
-      actions.appendChild(backBtn);
-    }
-    if (idx < PATIENT_STATUSES.length - 1) {
-      var nextBtn = document.createElement('button');
-      nextBtn.className = 'pat-next';
-      nextBtn.textContent = NEXT_LABELS[p.status];
-      nextBtn.addEventListener('click', function () { updatePatient(p.id, { status: PATIENT_STATUSES[idx + 1] }); });
-      actions.appendChild(nextBtn);
-    }
-    var delBtn = document.createElement('button');
-    delBtn.className = 'pat-del';
-    delBtn.textContent = '✕';
-    delBtn.title = '削除';
-    delBtn.addEventListener('click', function () {
-      if (confirm(p.number + '番' + (p.memo ? '（' + p.memo + '）' : '') + ' を削除しますか？')) deletePatient(p.id);
-    });
-    actions.appendChild(delBtn);
-    card.appendChild(actions);
-    return card;
-  }
-
-  function addPatient() {
-    var number = $('patNumber').value.trim();
-    var memo = $('patMemo').value.trim();
-    if (!number) { $('patNumber').focus(); return; }
-    fetch('/api/patients', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ number: number, memo: memo }),
-    }).then(function (r) {
-      if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || '追加に失敗しました'); });
-      return r.json();
-    }).then(function () {
-      $('patNumber').value = ''; $('patMemo').value = '';
-      $('patNumber').focus();
-      toast(number + '番を受付に追加しました');
-      fetchState();
-    }).catch(function (e) { toast(e.message); });
-  }
-  $('patAddBtn').addEventListener('click', addPatient);
-  $('patNumber').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('patMemo').focus(); } });
-  $('patMemo').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addPatient(); } });
-
-  $('patClearDone').addEventListener('click', function () {
-    if (!confirm('「完了」の患者さんをボードから消します。よろしいですか？')) return;
-    fetch('/api/patients/clear-done', { method: 'POST' }).then(fetchState).then(function () { toast('完了の方を消しました'); });
-  });
-  $('patClearAll').addEventListener('click', function () {
-    if (!confirm('患者ボードの全員を消します。1日の終わりのリセットなどにお使いください。よろしいですか？')) return;
-    fetch('/api/patients/clear-all', { method: 'POST' }).then(fetchState).then(function () { toast('患者ボードをリセットしました'); });
-  });
-
-  function updatePatient(id, changes) {
-    var p = state.patients.find(function (x) { return x.id === id; });
-    if (!p) return;
-    fetch('/api/patients/' + id, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({}, p, changes)),
-    }).then(fetchState);
-  }
-  function deletePatient(id) { fetch('/api/patients/' + id, { method: 'DELETE' }).then(fetchState); }
 
   // ---- 通知音 ----
   function playChime() {
@@ -1141,16 +874,10 @@
       .then(function (data) {
         state.devices = data.devices || [];
         var notesSig = JSON.stringify(data.notes);
-        var patSig = JSON.stringify(data.patients);
         var tplSig = JSON.stringify(data.templates);
         if (notesSig !== state.lastNotesSig) {
           state.lastNotesSig = notesSig; state.notes = data.notes;
-          renderHeaderBadges();
-          if (state.view === 'notes') renderNotes();
-        }
-        if (patSig !== state.lastPatientsSig) {
-          state.lastPatientsSig = patSig; state.patients = data.patients || [];
-          if (state.view === 'patients') renderPatients();
+          renderNotes();
         }
         if (tplSig !== state.lastTemplatesSig) {
           state.lastTemplatesSig = tplSig; state.templates = data.templates || [];
@@ -1267,7 +994,7 @@
     list.innerHTML = '';
     if (state.templates.length === 0) {
       var e = document.createElement('div');
-      e.className = 'flow-empty';
+      e.style.cssText = 'color:#bbb;font-size:12px;text-align:center;padding:8px 0;';
       e.textContent = 'テンプレートはありません';
       list.appendChild(e);
     }
@@ -1310,11 +1037,8 @@
   // ---- 自動同期 ----
   function anyModalOpen() { return overlay.classList.contains('open') || tplOverlay.classList.contains('open'); }
   setInterval(function () { if (!anyModalOpen()) fetchState(); }, 5000);
-  // 経過時間・期限表示の更新（1分ごと）
-  setInterval(function () {
-    if (anyModalOpen()) return;
-    if (state.view === 'notes') { renderNotes(); } else { renderPatients(); }
-  }, 60000);
+  // 期限表示の更新（1分ごと）
+  setInterval(function () { if (!anyModalOpen()) renderNotes(); }, 60000);
 
   fetchState();
 })();
